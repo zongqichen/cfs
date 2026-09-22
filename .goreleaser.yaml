@@ -1,0 +1,47 @@
+version: 2
+
+project_name: cfs
+
+metadata:
+  mod_timestamp: "{{ .CommitTimestamp }}"
+
+builds:
+  - id: cfs
+    main: ./cmd/cfs
+    binary: cfs
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+    ldflags:
+      - >-
+        -s -w
+        -X main.version={{ .Version }}
+        -X main.commit={{ .Commit }}
+        -X main.buildDate={{ .CommitDate }}
+
+archives:
+  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
+    builds_info:
+      group: root
+      owner: root
+      mtime: "{{ .CommitDate }}"
+    files:
+      - README.md
+      - LICENSE
+      - NOTICE
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  disable: true

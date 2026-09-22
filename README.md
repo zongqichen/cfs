@@ -1,6 +1,7 @@
 # cfs: isolated Cloud Foundry CLI contexts
 
 [![CI](https://github.com/zongqichen/cfs/actions/workflows/ci.yml/badge.svg)](https://github.com/zongqichen/cfs/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/zongqichen/cfs?include_prereleases&sort=semver)](https://github.com/zongqichen/cfs/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 Run multiple Cloud Foundry CLI targets in parallel—one isolated `cf` context per
@@ -41,6 +42,9 @@ and Linux or macOS.
 $ go install github.com/zongqichen/cfs/cmd/cfs@latest
 $ cfs setup
 ```
+
+Prebuilt Linux and macOS archives are available from
+[GitHub Releases](https://github.com/zongqichen/cfs/releases).
 
 Add the printed shim directory to your shell profile before the official CF CLI:
 
