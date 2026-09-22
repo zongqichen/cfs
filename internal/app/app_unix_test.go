@@ -194,6 +194,41 @@ func TestShimForwardsInteractiveInputAndArguments(t *testing.T) {
 	}
 }
 
+func TestResetRequiresYesWithNonTerminalInput(t *testing.T) {
+	fakeCF := writeFakeCF(t)
+	configureTestEnvironment(t, fakeCF, t.TempDir())
+	root := markerWorkspace(t)
+	if setup := runFromDirectory(t, root, []string{"cf", "apps"}); setup.code != exitOK {
+		t.Fatalf("create workspace state: %#v", setup)
+	}
+
+	result := runFromDirectory(t, root, []string{"cfs", "reset"})
+	if result.code != exitUsage {
+		t.Fatalf("exit code = %d, want %d; stderr = %q", result.code, exitUsage, result.stderr)
+	}
+	if !strings.Contains(result.stderr, "reset requires --yes") {
+		t.Fatalf("stderr = %q", result.stderr)
+	}
+}
+
+func TestResetUsesConfiguredLockTimeout(t *testing.T) {
+	fakeCF := writeFakeCF(t)
+	configureTestEnvironment(t, fakeCF, t.TempDir())
+	root := markerWorkspace(t)
+	if setup := runFromDirectory(t, root, []string{"cf", "apps"}); setup.code != exitOK {
+		t.Fatalf("create workspace state: %#v", setup)
+	}
+	t.Setenv("CFS_LOCK_TIMEOUT", "invalid")
+
+	result := runFromDirectory(t, root, []string{"cfs", "reset", "--yes"})
+	if result.code != exitUsage {
+		t.Fatalf("exit code = %d, want %d; stdout = %q; stderr = %q", result.code, exitUsage, result.stdout, result.stderr)
+	}
+	if !strings.Contains(result.stderr, `invalid CFS_LOCK_TIMEOUT "invalid"`) {
+		t.Fatalf("stderr = %q", result.stderr)
+	}
+}
+
 type commandResult struct {
 	code   int
 	stdout string

@@ -1,8 +1,7 @@
 # Releasing cfs
 
-`cfs` is technically ready for a pre-1.0 release, but no release has been
-published yet. The first release should be `v0.1.0` and should be marked as a
-pre-release while the CLI contract is still settling.
+`cfs` releases are marked as pre-releases while the pre-1.0 CLI contract is
+still settling. Choose the next version according to semantic versioning.
 
 ## Supported artifacts
 

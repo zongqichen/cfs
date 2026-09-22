@@ -11,10 +11,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zongqichen/cfs/internal/securefs"
 	"github.com/zongqichen/cfs/internal/workspace"
 )
 
-const metadataVersion = 1
+const (
+	metadataVersion      = 1
+	contextsDirectory    = "contexts"
+	locksDirectory       = "locks"
+	pluginsDirectory     = "plugins"
+	trashDirectory       = "trash"
+	contextHomeDirectory = "home"
+	metadataFileName     = "metadata.json"
+	lockFileSuffix       = ".lock"
+	trashTimestampLayout = "20060102T150405.000000000Z"
+)
 
 type Store struct {
 	Root string
@@ -53,22 +64,19 @@ func (s Store) ContextFor(ws workspace.Workspace) (Context, error) {
 	if !validID(ws.ID) {
 		return Context{}, errors.New("workspace returned an invalid context ID")
 	}
-	contextDir := filepath.Join(s.Root, "contexts", ws.ID)
+	contextDir := filepath.Join(s.Root, contextsDirectory, ws.ID)
 	return Context{
 		ID:           ws.ID,
 		Dir:          contextDir,
-		CFHome:       filepath.Join(contextDir, "home"),
-		LockPath:     filepath.Join(s.Root, "locks", ws.ID+".lock"),
-		MetadataPath: filepath.Join(contextDir, "metadata.json"),
+		CFHome:       filepath.Join(contextDir, contextHomeDirectory),
+		LockPath:     filepath.Join(s.Root, locksDirectory, ws.ID+lockFileSuffix),
+		MetadataPath: filepath.Join(contextDir, metadataFileName),
 	}, nil
 }
 
 func (s Store) Prepare(ctx Context) error {
-	for _, dir := range []string{s.Root, filepath.Join(s.Root, "contexts"), filepath.Join(s.Root, "locks"), ctx.Dir, ctx.CFHome, s.SharedPluginHome()} {
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			return fmt.Errorf("create state directory %s: %w", dir, err)
-		}
-		if err := restrictDirectory(dir); err != nil {
+	for _, dir := range []string{s.Root, filepath.Join(s.Root, contextsDirectory), filepath.Join(s.Root, locksDirectory), ctx.Dir, ctx.CFHome, s.SharedPluginHome()} {
+		if err := securefs.EnsureDirectory(dir); err != nil {
 			return err
 		}
 	}
@@ -101,7 +109,7 @@ func (s Store) Ensure(ctx Context, ws workspace.Workspace) error {
 		metadata.LastUsedAt = s.now().UTC()
 	}
 
-	return writeJSONAtomic(ctx.MetadataPath, metadata)
+	return securefs.WriteJSONAtomic(ctx.MetadataPath, metadata)
 }
 
 func (s Store) ReadMetadata(ctx Context) (Metadata, error) {
@@ -120,11 +128,11 @@ func (s Store) ReadMetadata(ctx Context) (Metadata, error) {
 }
 
 func (s Store) SharedPluginHome() string {
-	return filepath.Join(s.Root, "plugins")
+	return filepath.Join(s.Root, pluginsDirectory)
 }
 
 func (s Store) List() ([]Entry, error) {
-	root := filepath.Join(s.Root, "contexts")
+	root := filepath.Join(s.Root, contextsDirectory)
 	directories, err := os.ReadDir(root)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
@@ -141,9 +149,9 @@ func (s Store) List() ([]Entry, error) {
 		ctx := Context{
 			ID:           directory.Name(),
 			Dir:          filepath.Join(root, directory.Name()),
-			CFHome:       filepath.Join(root, directory.Name(), "home"),
-			LockPath:     filepath.Join(s.Root, "locks", directory.Name()+".lock"),
-			MetadataPath: filepath.Join(root, directory.Name(), "metadata.json"),
+			CFHome:       filepath.Join(root, directory.Name(), contextHomeDirectory),
+			LockPath:     filepath.Join(s.Root, locksDirectory, directory.Name()+lockFileSuffix),
+			MetadataPath: filepath.Join(root, directory.Name(), metadataFileName),
 		}
 		metadata, err := s.ReadMetadata(ctx)
 		if err != nil {
@@ -164,11 +172,11 @@ func (s Store) List() ([]Entry, error) {
 }
 
 func (s Store) MoveToTrash(ctx Context) (string, error) {
-	trashRoot := filepath.Join(s.Root, "trash")
-	if err := os.MkdirAll(trashRoot, 0o700); err != nil {
-		return "", fmt.Errorf("create trash directory: %w", err)
+	trashRoot := filepath.Join(s.Root, trashDirectory)
+	if err := securefs.EnsureDirectory(trashRoot); err != nil {
+		return "", err
 	}
-	timestamp := s.now().UTC().Format("20060102T150405.000000000Z")
+	timestamp := s.now().UTC().Format(trashTimestampLayout)
 	destination := filepath.Join(trashRoot, ctx.ID+"-"+timestamp)
 	if err := os.Rename(ctx.Dir, destination); err != nil {
 		return "", fmt.Errorf("move context to trash: %w", err)
@@ -192,41 +200,3 @@ func validID(id string) bool {
 }
 
 const sha256HexLength = 64
-
-func restrictDirectory(path string) error {
-	if err := os.Chmod(path, 0o700); err != nil {
-		return fmt.Errorf("set private permissions on %s: %w", path, err)
-	}
-	return nil
-}
-
-func writeJSONAtomic(path string, value any) error {
-	raw, err := json.MarshalIndent(value, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encode %s: %w", path, err)
-	}
-	raw = append(raw, '\n')
-
-	temporary, err := os.CreateTemp(filepath.Dir(path), "metadata-*.tmp")
-	if err != nil {
-		return fmt.Errorf("create temporary metadata: %w", err)
-	}
-	temporaryPath := temporary.Name()
-	defer os.Remove(temporaryPath)
-
-	if err := temporary.Chmod(0o600); err != nil {
-		temporary.Close()
-		return fmt.Errorf("set metadata permissions: %w", err)
-	}
-	if _, err := temporary.Write(raw); err != nil {
-		temporary.Close()
-		return fmt.Errorf("write metadata: %w", err)
-	}
-	if err := temporary.Close(); err != nil {
-		return fmt.Errorf("close metadata: %w", err)
-	}
-	if err := os.Rename(temporaryPath, path); err != nil {
-		return fmt.Errorf("replace metadata: %w", err)
-	}
-	return nil
-}
