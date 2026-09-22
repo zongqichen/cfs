@@ -3,160 +3,125 @@
 [![CI](https://github.com/zongqichen/cfs/actions/workflows/ci.yml/badge.svg)](https://github.com/zongqichen/cfs/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-Project-scoped Cloud Foundry CLI state, with the native `cf` experience.
+Project-scoped Cloud Foundry CLI state for parallel terminals and coding agents.
 
-`cfs` gives every development workspace an isolated Cloud Foundry API target,
-organization, space, and authentication state. It delegates every Cloud
-Foundry operation to the official CLI.
+The official `cf` CLI normally keeps one active target in `$HOME/.cf`. Switching
+the target in one terminal, project, or agent therefore changes it for all others.
+`cfs` gives each Git worktree its own API, org, space, and authentication state
+while preserving the normal `cf` command.
 
 ```text
 ~/work/orders   -> commerce/development
 ~/work/payments -> finance/production
 ```
 
-Users keep running normal commands:
-
-```console
-$ cd ~/work/orders
-$ cf login --sso
-$ cf target -o commerce -s development
-$ cf apps
-```
-
-There are no named sessions and no context-switching commands. A Git worktree
-is the default isolation boundary. This works across interactive terminals,
-Codex, Claude Code, IDE tools, scripts, and other processes that start fresh
-shells for each command.
+No sessions to name. No contexts to switch. No Cloud Foundry API reimplementation.
 
 > [!IMPORTANT]
-> `cfs` is currently an early implementation. Test it with non-production
-> Cloud Foundry targets before relying on it for operational workflows.
+> `cfs` is an early implementation. Use non-production targets while evaluating it.
 
-## How it works
+## Install
 
-After setup, a small shim named `cf` appears before the official CLI on `PATH`:
-
-```text
-cf <arguments>
-      |
-      v
-cfs workspace resolver
-      |  CF_HOME=<private workspace home>
-      v
-official cf <arguments>
-```
-
-The shim resolves the current Git worktree or nearest `.cfs.toml` marker,
-selects a private `CF_HOME`, obtains a per-workspace lock, and starts the
-official CF CLI with the original arguments and terminal streams.
-
-The official CLI remains responsible for login, token refresh, API calls,
-plugins, and every CF command. `cfs` does not parse or modify its
-`config.json`.
-
-## Install from source
-
-Requirements:
-
-- Go 1.22 or newer.
-- The official Cloud Foundry CLI already installed.
-- Linux or macOS for the current MVP.
+Requirements: Go 1.22+, the official CF CLI, and Linux or macOS.
 
 ```console
 $ go install github.com/zongqichen/cfs/cmd/cfs@latest
 $ cfs setup
 ```
 
-By default, the shim is installed in:
-
-```text
-$HOME/.local/share/cfs/shims
-```
-
-Place that directory before the official CF CLI directory on `PATH`:
+Add the printed shim directory to your shell profile before the official CF CLI:
 
 ```sh
 export PATH="$HOME/.local/share/cfs/shims:$PATH"
 ```
 
-Add the line to the appropriate shell profile, start a new shell, and verify:
+Start a new shell and verify the installation:
 
 ```console
 $ cfs doctor
 $ command -v cf
-$ cf version
 ```
 
-Use `cfs setup --real-cf /absolute/path/to/cf` if automatic discovery finds the
-wrong executable. `cfs setup` never overwrites or renames the official CLI.
+`command -v cf` should resolve to `$HOME/.local/share/cfs/shims/cf`. Use
+`cfs setup --real-cf /absolute/path/to/cf` if automatic discovery selects the
+wrong executable.
 
-## Commands
+## Use
 
-```text
-cfs setup       Install and configure the transparent cf shim
-cfs status      Show workspace resolution and the current CF target
-cfs doctor      Diagnose configuration and installation problems
-cfs reset       Move the current workspace state to recoverable trash
-cfs gc          Find state for workspaces that no longer exist
-cfs uninstall   Remove the shim without deleting workspace state
-cfs version     Print version information
-```
-
-Normal Cloud Foundry operations always use `cf`, not `cfs exec`:
+Keep using the official CLI commands inside each project:
 
 ```console
-$ cf login --sso -a https://api.example.com
-$ cf target -o my-org -s my-space
-$ cf push
+$ cd ~/work/orders
+$ cf login --sso -a https://api.example.com -o commerce -s development
+$ cf apps
 ```
 
-## Non-Git and monorepo workspaces
+In another project or worktree:
 
-Place a `.cfs.toml` marker at the desired workspace root:
+```console
+$ cd ~/work/payments
+$ cf login --sso -a https://api.example.com -o finance -s production
+$ cf apps
+```
+
+Each workspace retains its own target and login. Different workspaces can run
+concurrently; commands in the same workspace are serialized.
+
+## Coding agents
+
+`cfs` is agent-friendly, not agent-specific. Start Codex, Claude Code, or an IDE
+agent inside a project and let it use normal `cf` commands. No plugin, prompt, or
+agent-specific session API is required.
+
+The agent must inherit the shim `PATH` and have network access to the CF API. A
+one-time `command -v cf` check inside the agent should resolve to the `cfs` shim.
+
+## Workspace boundaries
+
+A Git worktree is the default boundary. For a non-Git project or an independent
+directory inside a monorepo, add this file at the desired root:
 
 ```toml
+# .cfs.toml
 version = 1
 ```
 
-The nearest marker takes precedence over the Git worktree root. The file never
-contains credentials or mutable target state and may be committed.
-
-For one-off automation, set an explicit root:
+For one command, an explicit root takes precedence:
 
 ```console
 $ CFS_WORKSPACE_ROOT=/workspace cf apps
 ```
 
-## Safety behavior
+## Management commands
 
-- No detected workspace means no command: `cfs` refuses to fall back to the
-  shared `$HOME/.cf`.
-- Different workspaces run concurrently. Commands in the same workspace are
-  serialized to protect CF CLI configuration.
-- State directories are private to the current operating-system user.
-- `cfs reset` and `cfs gc --apply` move state to recoverable trash.
-- Existing `CF_HOME` and `CF_PLUGIN_HOME` values are treated as explicit user
-  overrides and are preserved.
-- `CFS_DISABLE=1 cf ...` explicitly bypasses managed isolation.
-- No telemetry is collected.
+```text
+cfs setup       Install and configure the cf shim
+cfs status      Show the workspace and current CF target
+cfs doctor      Check the installation
+cfs reset       Move the current workspace state to trash
+cfs gc          Find state for workspaces that no longer exist
+cfs uninstall   Remove the shim without deleting workspace state
+cfs version     Print version information
+```
+
+`cfs` delegates login, token refresh, API calls, and plugins to the official CF
+CLI. It does not parse credentials, and it fails closed outside a workspace
+instead of falling back to `$HOME/.cf`. Set `CFS_DISABLE=1` for an explicit
+one-command bypass. No telemetry is collected.
 
 ## Development
 
 ```console
 $ make check
-$ make build
-$ make smoke  # Uses an installed official cf without contacting a CF API
+$ make release-check
+$ make smoke
 ```
 
-The implementation uses the Go standard library and currently has no runtime
-dependencies.
-
-See [the architecture design](docs/design.md) for the complete product
-contract, state model, security constraints, and acceptance criteria.
-See [the release guide](docs/releasing.md) for supported artifacts and the
-pre-release gates.
+The implementation uses only the Go standard library at runtime. See the
+[architecture](docs/design.md), [release guide](docs/releasing.md), and
+[security policy](SECURITY.md).
 
 ## License
 
-Copyright 2026 Zongqi Chen. Licensed under the Apache License, Version 2.0,
-the same license used by the official Cloud Foundry CLI. See [LICENSE](LICENSE).
+Apache License 2.0, the same license used by the official Cloud Foundry CLI.
+See [LICENSE](LICENSE) and [NOTICE](NOTICE).
