@@ -21,8 +21,12 @@ func TestResolveMarkerFromNestedDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
-	if got.Root != root {
-		t.Fatalf("Root = %q, want %q", got.Root, root)
+	wantRoot, err := canonicalDirectory(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Root != wantRoot {
+		t.Fatalf("Root = %q, want %q", got.Root, wantRoot)
 	}
 	if got.Source != "marker" {
 		t.Fatalf("Source = %q, want marker", got.Source)
@@ -40,7 +44,11 @@ func TestExplicitRootTakesPrecedence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
-	if got.Root != root || got.Source != "environment" {
+	wantRoot, err := canonicalDirectory(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Root != wantRoot || got.Source != "environment" {
 		t.Fatalf("Resolve() = %#v", got)
 	}
 }
