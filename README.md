@@ -1,6 +1,7 @@
 # cfs
 
 [![CI](https://github.com/zongqichen/cfs/actions/workflows/ci.yml/badge.svg)](https://github.com/zongqichen/cfs/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 Project-scoped Cloud Foundry CLI state, with the native `cf` experience.
 
@@ -144,6 +145,7 @@ $ CFS_WORKSPACE_ROOT=/workspace cf apps
 ```console
 $ make check
 $ make build
+$ make smoke  # Uses an installed official cf without contacting a CF API
 ```
 
 The implementation uses the Go standard library and currently has no runtime
@@ -151,3 +153,8 @@ dependencies.
 
 See [the architecture design](docs/design.md) for the complete product
 contract, state model, security constraints, and acceptance criteria.
+
+## License
+
+Copyright 2026 Zongqi Chen. Licensed under the Apache License, Version 2.0,
+the same license used by the official Cloud Foundry CLI. See [LICENSE](LICENSE).

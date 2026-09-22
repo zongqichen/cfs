@@ -1,4 +1,4 @@
-.PHONY: build test vet check
+.PHONY: build test vet check smoke
 
 build:
 	go build -o bin/cfs ./cmd/cfs
@@ -10,3 +10,6 @@ vet:
 	go vet ./...
 
 check: test vet
+
+smoke:
+	./scripts/smoke-real-cf.sh
