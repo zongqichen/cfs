@@ -1,28 +1,41 @@
-# cfs
+# cfs: isolated Cloud Foundry CLI contexts
 
 [![CI](https://github.com/zongqichen/cfs/actions/workflows/ci.yml/badge.svg)](https://github.com/zongqichen/cfs/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-Project-scoped Cloud Foundry CLI state for parallel terminals and coding agents.
+Run multiple Cloud Foundry CLI targets in parallel—one isolated `cf` context per
+project or Git worktree.
 
-The official `cf` CLI normally keeps one active target in `$HOME/.cf`. Switching
-the target in one terminal, project, or agent therefore changes it for all others.
-`cfs` gives each Git worktree its own API, org, space, and authentication state
-while preserving the normal `cf` command.
+The official `cf` CLI stores one active API endpoint, organization, space, and
+login in the shared `$HOME/.cf`. Running `cf login` or `cf target` in one terminal
+therefore changes the target for every other terminal, script, and coding agent.
+`cfs` gives each workspace a private `CF_HOME` while preserving the normal `cf`
+command.
 
 ```text
 ~/work/orders   -> commerce/development
 ~/work/payments -> finance/production
 ```
 
-No sessions to name. No contexts to switch. No Cloud Foundry API reimplementation.
+## Why cfs
+
+- **Same CLI:** keep using `cf login`, `cf target`, `cf push`, plugins, and scripts.
+- **Automatic isolation:** the current Git worktree selects its own API, org,
+  space, and login state—no sessions to name or contexts to switch.
+- **Parallel-safe:** different workspaces run concurrently; commands in the same
+  workspace are serialized.
+- **Agent-ready:** the working directory provides stable context across the fresh
+  shells used by Codex, Claude Code, and IDE agents.
+- **Official CLI underneath:** authentication, token refresh, plugins, and Cloud
+  Foundry API calls remain the responsibility of the official `cf` CLI.
 
 > [!IMPORTANT]
 > `cfs` is an early implementation. Use non-production targets while evaluating it.
 
 ## Install
 
-Requirements: Go 1.22+, the official CF CLI, and Linux or macOS.
+Requirements: Go 1.22+, the [official Cloud Foundry CLI](https://github.com/cloudfoundry/cli),
+and Linux or macOS.
 
 ```console
 $ go install github.com/zongqichen/cfs/cmd/cfs@latest
@@ -64,8 +77,7 @@ $ cf login --sso -a https://api.example.com -o finance -s production
 $ cf apps
 ```
 
-Each workspace retains its own target and login. Different workspaces can run
-concurrently; commands in the same workspace are serialized.
+Commands in either workspace automatically use that workspace's target and login.
 
 ## Coding agents
 
@@ -75,6 +87,7 @@ agent-specific session API is required.
 
 The agent must inherit the shim `PATH` and have network access to the CF API. A
 one-time `command -v cf` check inside the agent should resolve to the `cfs` shim.
+Use `cfs status --json` and `cfs doctor --json` for machine-readable checks.
 
 ## Workspace boundaries
 
