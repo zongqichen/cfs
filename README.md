@@ -153,6 +153,8 @@ dependencies.
 
 See [the architecture design](docs/design.md) for the complete product
 contract, state model, security constraints, and acceptance criteria.
+See [the release guide](docs/releasing.md) for supported artifacts and the
+pre-release gates.
 
 ## License
 

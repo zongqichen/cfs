@@ -10,6 +10,9 @@ import (
 	"testing"
 
 	"github.com/zongqichen/cfs/internal/config"
+	"github.com/zongqichen/cfs/internal/lock"
+	"github.com/zongqichen/cfs/internal/store"
+	"github.com/zongqichen/cfs/internal/workspace"
 )
 
 func TestShimUsesWorkspaceSpecificCFHome(t *testing.T) {
@@ -35,6 +38,14 @@ func TestShimUsesWorkspaceSpecificCFHome(t *testing.T) {
 	}
 	if !strings.HasPrefix(firstHome, stateRoot) || !strings.HasPrefix(secondHome, stateRoot) {
 		t.Fatalf("CF homes are outside state root: %q / %q", firstHome, secondHome)
+	}
+	firstPluginHome := outputValue(first.stdout, "CF_PLUGIN_HOME")
+	secondPluginHome := outputValue(second.stdout, "CF_PLUGIN_HOME")
+	if firstPluginHome == "" || firstPluginHome != secondPluginHome {
+		t.Fatalf("workspaces did not share a plugin home: %q / %q", firstPluginHome, secondPluginHome)
+	}
+	if !strings.HasPrefix(firstPluginHome, stateRoot) {
+		t.Fatalf("plugin home %q is outside state root %q", firstPluginHome, stateRoot)
 	}
 }
 
@@ -85,6 +96,21 @@ func TestShimPreservesExplicitCFHome(t *testing.T) {
 	}
 }
 
+func TestShimPreservesExplicitPluginHome(t *testing.T) {
+	fakeCF := writeFakeCF(t)
+	configureTestEnvironment(t, fakeCF, t.TempDir())
+	externalPluginHome := filepath.Join(t.TempDir(), "plugins")
+	t.Setenv("CF_PLUGIN_HOME", externalPluginHome)
+
+	result := runFromDirectory(t, markerWorkspace(t), []string{"cf", "plugins"})
+	if result.code != 0 {
+		t.Fatalf("exit code = %d, stderr = %q", result.code, result.stderr)
+	}
+	if got := outputValue(result.stdout, "CF_PLUGIN_HOME"); got != externalPluginHome {
+		t.Fatalf("CF_PLUGIN_HOME = %q, want %q", got, externalPluginHome)
+	}
+}
+
 func TestExplicitWorkspaceRootOverridesInheritedCFHome(t *testing.T) {
 	fakeCF := writeFakeCF(t)
 	stateRoot := t.TempDir()
@@ -115,6 +141,59 @@ func TestShimPropagatesOfficialExitCode(t *testing.T) {
 	}
 }
 
+func TestShimRejectsConcurrentCommandInSameWorkspace(t *testing.T) {
+	fakeCF := writeFakeCF(t)
+	stateRoot := t.TempDir()
+	configureTestEnvironment(t, fakeCF, stateRoot)
+	root := markerWorkspace(t)
+
+	ws, err := workspace.Resolve(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateStore := store.New(stateRoot)
+	ctx, err := stateStore.ContextFor(ws)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stateStore.Prepare(ctx); err != nil {
+		t.Fatal(err)
+	}
+	held, err := lock.Acquire(ctx.LockPath, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held.Release()
+
+	result := runFromDirectory(t, root, []string{"cf", "apps"})
+	if result.code != exitTemporary {
+		t.Fatalf("exit code = %d, want %d; stderr = %q", result.code, exitTemporary, result.stderr)
+	}
+	if !strings.Contains(result.stderr, "already has an active CF command") {
+		t.Fatalf("stderr = %q", result.stderr)
+	}
+	if result.stdout != "" {
+		t.Fatalf("official CLI unexpectedly ran: %q", result.stdout)
+	}
+}
+
+func TestShimForwardsInteractiveInputAndArguments(t *testing.T) {
+	fakeCF := writeFakeCF(t)
+	configureTestEnvironment(t, fakeCF, t.TempDir())
+	root := markerWorkspace(t)
+
+	result := runFromDirectoryWithInput(t, root, []string{"cf", "login", "--sso"}, "temporary-code\n")
+	if result.code != 0 {
+		t.Fatalf("exit code = %d, stderr = %q", result.code, result.stderr)
+	}
+	if !strings.Contains(result.stdout, "ARGS=login --sso") {
+		t.Fatalf("arguments were not forwarded: %q", result.stdout)
+	}
+	if !strings.Contains(result.stdout, "STDIN=temporary-code") {
+		t.Fatalf("stdin was not forwarded: %q", result.stdout)
+	}
+}
+
 type commandResult struct {
 	code   int
 	stdout string
@@ -122,6 +201,10 @@ type commandResult struct {
 }
 
 func runFromDirectory(t *testing.T, directory string, args []string) commandResult {
+	return runFromDirectoryWithInput(t, directory, args, "")
+}
+
+func runFromDirectoryWithInput(t *testing.T, directory string, args []string, input string) commandResult {
 	t.Helper()
 	if err := os.MkdirAll(directory, 0o700); err != nil {
 		t.Fatal(err)
@@ -137,7 +220,7 @@ func runFromDirectory(t *testing.T, directory string, args []string) commandResu
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	code := Run(Options{Args: args, Stdin: strings.NewReader(""), Stdout: &stdout, Stderr: &stderr})
+	code := Run(Options{Args: args, Stdin: strings.NewReader(input), Stdout: &stdout, Stderr: &stderr})
 	if err := os.Chdir(previous); err != nil {
 		t.Fatal(err)
 	}
@@ -180,6 +263,10 @@ printf 'CF_PLUGIN_HOME=%s\n' "$CF_PLUGIN_HOME"
 printf 'ARGS=%s\n' "$*"
 if [ "$1" = "exit-42" ]; then
   exit 42
+fi
+if [ "$1" = "login" ] && [ "$2" = "--sso" ]; then
+  IFS= read -r value
+  printf 'STDIN=%s\n' "$value"
 fi
 `
 	if err := os.WriteFile(path, []byte(script), 0o700); err != nil {

@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -66,6 +67,37 @@ func TestIdentityIsStableAndRootSpecific(t *testing.T) {
 	}
 }
 
+func TestResolveUsesDistinctContextsForGitWorktrees(t *testing.T) {
+	t.Setenv("CFS_WORKSPACE_ROOT", "")
+	root := t.TempDir()
+	primary := filepath.Join(root, "primary")
+	secondary := filepath.Join(root, "secondary")
+	if err := os.Mkdir(primary, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, "init", "-q", primary)
+	runGit(t, "-C", primary, "-c", "user.name=cfs-test", "-c", "user.email=cfs-test@example.invalid", "commit", "--allow-empty", "-q", "-m", "initial")
+	runGit(t, "-C", primary, "worktree", "add", "-q", "-b", "secondary", secondary)
+
+	first, err := Resolve(primary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := Resolve(secondary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Source != "git-worktree" || second.Source != "git-worktree" {
+		t.Fatalf("sources = %q / %q, want git-worktree", first.Source, second.Source)
+	}
+	if first.Root == second.Root {
+		t.Fatalf("worktrees resolved to the same root %q", first.Root)
+	}
+	if first.ID == second.ID {
+		t.Fatalf("worktrees resolved to the same context %q", first.ID)
+	}
+}
+
 func TestResolveFailsOutsideWorkspace(t *testing.T) {
 	t.Setenv("CFS_WORKSPACE_ROOT", "")
 	_, err := Resolve(t.TempDir())
@@ -82,5 +114,13 @@ func TestResolveRejectsUnsupportedMarkerVersion(t *testing.T) {
 	}
 	if _, err := Resolve(root); err == nil {
 		t.Fatal("Resolve() error = nil, want unsupported marker error")
+	}
+}
+
+func runGit(t *testing.T, args ...string) {
+	t.Helper()
+	command := exec.Command("git", args...)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("git %v: %v: %s", args, err, output)
 	}
 }

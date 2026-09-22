@@ -11,7 +11,8 @@ import (
 func TestSetupAndUninstallShim(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CFS_CONFIG_FILE", filepath.Join(root, "config", "config.json"))
-	t.Setenv("CFS_STATE_HOME", filepath.Join(root, "state"))
+	stateRoot := filepath.Join(root, "state")
+	t.Setenv("CFS_STATE_HOME", stateRoot)
 	shimDir := filepath.Join(root, "shims")
 	fakeCF := filepath.Join(root, "cf-real")
 	if err := os.WriteFile(fakeCF, []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
@@ -27,6 +28,13 @@ func TestSetupAndUninstallShim(t *testing.T) {
 	} else if info.Mode()&os.ModeSymlink == 0 {
 		t.Fatalf("shim mode = %s, want symlink", info.Mode())
 	}
+	stateFile := filepath.Join(stateRoot, "contexts", "preserve-me")
+	if err := os.MkdirAll(filepath.Dir(stateFile), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(stateFile, []byte("workspace state"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 
 	removed, err := Uninstall()
 	if err != nil {
@@ -37,6 +45,11 @@ func TestSetupAndUninstallShim(t *testing.T) {
 	}
 	if _, err := os.Lstat(result.ShimPath); !os.IsNotExist(err) {
 		t.Fatalf("shim still exists: %v", err)
+	}
+	if raw, err := os.ReadFile(stateFile); err != nil {
+		t.Fatalf("workspace state was removed: %v", err)
+	} else if string(raw) != "workspace state" {
+		t.Fatalf("workspace state changed: %q", raw)
 	}
 }
 
