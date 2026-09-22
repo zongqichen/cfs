@@ -6,11 +6,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
-	"strings"
 
 	"github.com/zongqichen/cfs/internal/config"
+	"github.com/zongqichen/cfs/internal/executable"
 )
+
+const shimDirectoryMode = 0o755
 
 type SetupOptions struct {
 	RealCFPath string
@@ -26,7 +27,7 @@ type SetupResult struct {
 }
 
 func Setup(options SetupOptions) (SetupResult, error) {
-	self, err := canonicalExecutable()
+	self, err := executable.Current()
 	if err != nil {
 		return SetupResult{}, err
 	}
@@ -47,7 +48,7 @@ func Setup(options SetupOptions) (SetupResult, error) {
 	if err != nil {
 		return SetupResult{}, fmt.Errorf("resolve shim directory: %w", err)
 	}
-	if err := os.MkdirAll(shimDir, 0o755); err != nil {
+	if err := os.MkdirAll(shimDir, shimDirectoryMode); err != nil {
 		return SetupResult{}, fmt.Errorf("create shim directory: %w", err)
 	}
 
@@ -59,11 +60,7 @@ func Setup(options SetupOptions) (SetupResult, error) {
 		}
 	}
 
-	shimName := "cf"
-	if runtime.GOOS == "windows" {
-		shimName = "cf.exe"
-	}
-	shimPath := filepath.Join(shimDir, shimName)
+	shimPath := filepath.Join(shimDir, executable.Name("cf"))
 	shimCreated, err := installShim(shimPath, self)
 	if err != nil {
 		return SetupResult{}, err
@@ -99,11 +96,7 @@ func Uninstall() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	shimName := "cf"
-	if runtime.GOOS == "windows" {
-		shimName = "cf.exe"
-	}
-	shimPath := filepath.Join(cfg.ShimDir, shimName)
+	shimPath := filepath.Join(cfg.ShimDir, executable.Name("cf"))
 
 	info, err := os.Lstat(shimPath)
 	if errors.Is(err, os.ErrNotExist) {
@@ -119,11 +112,11 @@ func Uninstall() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve shim target: %w", err)
 	}
-	self, err := canonicalExecutable()
+	self, err := executable.Current()
 	if err != nil {
 		return "", err
 	}
-	if !samePath(target, self) {
+	if !executable.Same(target, self) {
 		return "", fmt.Errorf("refusing to remove shim owned by another executable: %s", shimPath)
 	}
 	if err := os.Remove(shimPath); err != nil {
@@ -146,16 +139,12 @@ func resolveRealCF(explicit, self string) (string, error) {
 		}
 	}
 
-	abs, err := filepath.Abs(candidate)
-	if err != nil {
-		return "", fmt.Errorf("resolve official CF CLI path: %w", err)
-	}
-	real, err := filepath.EvalSymlinks(abs)
+	real, err := executable.Resolve(candidate)
 	if err != nil {
 		return "", fmt.Errorf("resolve official CF CLI: %w", err)
 	}
-	if samePath(real, self) {
-		if cfg, loadErr := config.Load(); loadErr == nil && !samePath(cfg.RealCFPath, self) {
+	if executable.Same(real, self) {
+		if cfg, loadErr := config.Load(); loadErr == nil && !executable.Same(cfg.RealCFPath, self) {
 			return validateExecutable(cfg.RealCFPath)
 		}
 		return "", errors.New("the discovered cf command is the cfs shim; pass --real-cf with the official CLI path")
@@ -164,23 +153,9 @@ func resolveRealCF(explicit, self string) (string, error) {
 }
 
 func validateExecutable(path string) (string, error) {
-	abs, err := filepath.Abs(path)
+	real, err := executable.Resolve(path)
 	if err != nil {
-		return "", err
-	}
-	real, err := filepath.EvalSymlinks(abs)
-	if err != nil {
-		return "", fmt.Errorf("resolve executable %s: %w", abs, err)
-	}
-	info, err := os.Stat(real)
-	if err != nil {
-		return "", fmt.Errorf("inspect executable %s: %w", real, err)
-	}
-	if !info.Mode().IsRegular() {
-		return "", fmt.Errorf("official CF CLI is not a regular file: %s", real)
-	}
-	if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
-		return "", fmt.Errorf("official CF CLI is not executable: %s", real)
+		return "", fmt.Errorf("validate official CF CLI: %w", err)
 	}
 	return real, nil
 }
@@ -191,7 +166,7 @@ func installShim(path, target string) (bool, error) {
 			return false, fmt.Errorf("refusing to replace existing non-symlink: %s", path)
 		}
 		existing, resolveErr := filepath.EvalSymlinks(path)
-		if resolveErr == nil && samePath(existing, target) {
+		if resolveErr == nil && executable.Same(existing, target) {
 			return false, nil
 		}
 		return false, fmt.Errorf("refusing to replace existing shim: %s", path)
@@ -205,31 +180,7 @@ func installShim(path, target string) (bool, error) {
 	return true, nil
 }
 
-func canonicalExecutable() (string, error) {
-	path, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("resolve cfs executable: %w", err)
-	}
-	real, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return "", fmt.Errorf("resolve cfs executable symlinks: %w", err)
-	}
-	return filepath.Clean(real), nil
-}
-
-func samePath(first, second string) bool {
-	firstAbs, firstErr := filepath.Abs(first)
-	secondAbs, secondErr := filepath.Abs(second)
-	if firstErr != nil || secondErr != nil {
-		return false
-	}
-	if runtime.GOOS == "windows" {
-		return strings.EqualFold(filepath.Clean(firstAbs), filepath.Clean(secondAbs))
-	}
-	return filepath.Clean(firstAbs) == filepath.Clean(secondAbs)
-}
-
 func pathSelectsShim(shimPath string) bool {
 	resolved, err := exec.LookPath("cf")
-	return err == nil && samePath(resolved, shimPath)
+	return err == nil && executable.Same(resolved, shimPath)
 }

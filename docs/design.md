@@ -160,6 +160,7 @@ The initial control interface is deliberately small:
 | `cfs gc` | Report orphaned workspace state; deletion requires `--apply`. |
 | `cfs uninstall` | Remove the shim and PATH integration, preserving state. |
 | `cfs version` | Print the `cfs` version and build information. |
+| `cfs help [command]` | Show global or command-specific help. |
 
 Global conventions:
 

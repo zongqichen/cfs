@@ -6,14 +6,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
-	"time"
 
 	"github.com/zongqichen/cfs/internal/config"
+	"github.com/zongqichen/cfs/internal/envvar"
+	"github.com/zongqichen/cfs/internal/executable"
 	"github.com/zongqichen/cfs/internal/lock"
 	"github.com/zongqichen/cfs/internal/runner"
-	"github.com/zongqichen/cfs/internal/store"
 	"github.com/zongqichen/cfs/internal/workspace"
 )
 
@@ -42,8 +41,8 @@ func Run(options Options) int {
 		return exitError
 	}
 
-	name := strings.TrimSuffix(strings.ToLower(filepath.Base(options.Args[0])), ".exe")
-	if name == "cf" {
+	name := filepath.Base(options.Args[0])
+	if strings.EqualFold(name, executable.Name("cf")) {
 		return runShim(options, options.Args[1:])
 	}
 	return runControl(options, options.Args[1:])
@@ -64,41 +63,20 @@ func runShim(options Options, args []string) int {
 		return exitUnavailable
 	}
 
-	explicitWorkspace := os.Getenv("CFS_WORKSPACE_ROOT") != ""
-	if envTrue("CFS_DISABLE") || os.Getenv("CFS_ACTIVE_CONTEXT") != "" || (os.Getenv("CF_HOME") != "" && !explicitWorkspace) {
+	_, hasExternalCFHome := externalCFHome()
+	if envTrue(envvar.Disable) || os.Getenv(envvar.ActiveContext) != "" || hasExternalCFHome {
 		return invokeOfficial(options, cfg.RealCFPath, args, os.Environ())
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		fprintf(options.Stderr, "cfs: resolve current directory: %v\n", err)
-		return exitError
-	}
-	ws, err := workspace.Resolve(cwd)
+	managed, err := resolveManagedContext(cfg)
 	if err != nil {
 		if errors.Is(err, workspace.ErrNotFound) {
 			fprintf(options.Stderr, "cfs: no workspace could be resolved; refusing to use the global CF home\n")
-			fprintf(options.Stderr, "Hint: run this command inside a Git worktree or set CFS_WORKSPACE_ROOT.\n")
+			fprintf(options.Stderr, "Hint: run this command inside a Git worktree or set %s.\n", envvar.WorkspaceRoot)
 		} else {
 			fprintf(options.Stderr, "cfs: %v\n", err)
 		}
 		return exitUnavailable
-	}
-
-	stateRoot, err := config.StateRoot(cfg)
-	if err != nil {
-		fprintf(options.Stderr, "cfs: %v\n", err)
-		return exitError
-	}
-	stateStore := store.New(stateRoot)
-	ctx, err := stateStore.ContextFor(ws)
-	if err != nil {
-		fprintf(options.Stderr, "cfs: %v\n", err)
-		return exitError
-	}
-	if err := stateStore.Prepare(ctx); err != nil {
-		fprintf(options.Stderr, "cfs: %v\n", err)
-		return exitError
 	}
 
 	timeout, err := lockTimeout()
@@ -106,7 +84,7 @@ func runShim(options Options, args []string) int {
 		fprintf(options.Stderr, "cfs: %v\n", err)
 		return exitUsage
 	}
-	workspaceLock, err := lock.Acquire(ctx.LockPath, timeout)
+	workspaceLock, err := managed.activate(timeout)
 	if errors.Is(err, lock.ErrBusy) {
 		fprintf(options.Stderr, "cfs: this workspace already has an active CF command\n")
 		fprintf(options.Stderr, "Hint: wait for the command to finish or use a separate Git worktree.\n")
@@ -117,20 +95,7 @@ func runShim(options Options, args []string) int {
 		return exitError
 	}
 
-	if err := stateStore.Ensure(ctx, ws); err != nil {
-		_ = workspaceLock.Release()
-		fprintf(options.Stderr, "cfs: %v\n", err)
-		return exitError
-	}
-
-	values := map[string]string{
-		"CF_HOME":            ctx.CFHome,
-		"CFS_ACTIVE_CONTEXT": ctx.ID,
-	}
-	if os.Getenv("CF_PLUGIN_HOME") == "" {
-		values["CF_PLUGIN_HOME"] = stateStore.SharedPluginHome()
-	}
-	env := runner.ReplaceEnv(os.Environ(), values)
+	env := managed.environment(os.Environ())
 	exitCode := invokeOfficial(options, cfg.RealCFPath, args, env)
 	if err := workspaceLock.Release(); err != nil {
 		fprintf(options.Stderr, "cfs: %v\n", err)
@@ -153,37 +118,15 @@ func invokeOfficial(options Options, path string, args []string, env []string) i
 }
 
 func validateRealCF(path string) error {
-	info, err := os.Stat(path)
+	real, err := executable.Resolve(path)
 	if err != nil {
 		return fmt.Errorf("official CF CLI is unavailable at %s: %w", path, err)
 	}
-	if !info.Mode().IsRegular() {
-		return fmt.Errorf("official CF CLI is not a regular file: %s", path)
-	}
-	if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
-		return fmt.Errorf("official CF CLI is not executable: %s", path)
-	}
-	target, targetErr := filepath.EvalSymlinks(path)
-	self, selfErr := os.Executable()
-	if targetErr == nil && selfErr == nil {
-		self, selfErr = filepath.EvalSymlinks(self)
-	}
-	if targetErr == nil && selfErr == nil && pathsEqual(target, self) {
+	self, selfErr := executable.Current()
+	if selfErr == nil && executable.Same(real, self) {
 		return fmt.Errorf("official CF CLI path resolves to cfs itself: %s", path)
 	}
 	return nil
-}
-
-func lockTimeout() (time.Duration, error) {
-	value := os.Getenv("CFS_LOCK_TIMEOUT")
-	if value == "" {
-		return 3 * time.Second, nil
-	}
-	timeout, err := time.ParseDuration(value)
-	if err != nil || timeout < 0 {
-		return 0, fmt.Errorf("invalid CFS_LOCK_TIMEOUT %q", value)
-	}
-	return timeout, nil
 }
 
 func envTrue(name string) bool {

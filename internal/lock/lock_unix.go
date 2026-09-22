@@ -8,20 +8,24 @@ import (
 	"os"
 	"syscall"
 	"time"
+
+	"github.com/zongqichen/cfs/internal/securefs"
 )
 
 var ErrBusy = errors.New("workspace is busy")
+
+const retryInterval = 50 * time.Millisecond
 
 type Lock struct {
 	file *os.File
 }
 
 func Acquire(path string, timeout time.Duration) (*Lock, error) {
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, securefs.FileMode)
 	if err != nil {
 		return nil, fmt.Errorf("open lock file: %w", err)
 	}
-	if err := file.Chmod(0o600); err != nil {
+	if err := file.Chmod(securefs.FileMode); err != nil {
 		file.Close()
 		return nil, fmt.Errorf("set lock permissions: %w", err)
 	}
@@ -55,7 +59,7 @@ func Acquire(path string, timeout time.Duration) (*Lock, error) {
 			file.Close()
 			return nil, ErrBusy
 		}
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(retryInterval)
 	}
 }
 

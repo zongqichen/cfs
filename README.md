@@ -119,6 +119,7 @@ cfs reset       Move the current workspace state to trash
 cfs gc          Find state for workspaces that no longer exist
 cfs uninstall   Remove the shim without deleting workspace state
 cfs version     Print version information
+cfs help [command]  Show global or command-specific help
 ```
 
 `cfs` delegates login, token refresh, API calls, and plugins to the official CF

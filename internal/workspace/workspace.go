@@ -11,9 +11,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/zongqichen/cfs/internal/envvar"
 )
 
-const MarkerName = ".cfs.toml"
+const (
+	MarkerName         = ".cfs.toml"
+	markerVersion      = "1"
+	markerReadLimit    = 64 * 1024
+	contextHashPrefix  = "cfs:v1\x00"
+	missingFingerprint = "none"
+)
 
 var ErrNotFound = errors.New("no workspace could be resolved")
 
@@ -25,10 +33,10 @@ type Workspace struct {
 }
 
 func Resolve(cwd string) (Workspace, error) {
-	if explicit := os.Getenv("CFS_WORKSPACE_ROOT"); explicit != "" {
+	if explicit := os.Getenv(envvar.WorkspaceRoot); explicit != "" {
 		root, err := canonicalDirectory(explicit)
 		if err != nil {
-			return Workspace{}, fmt.Errorf("resolve CFS_WORKSPACE_ROOT: %w", err)
+			return Workspace{}, fmt.Errorf("resolve %s: %w", envvar.WorkspaceRoot, err)
 		}
 		return identify(root, "environment"), nil
 	}
@@ -93,7 +101,7 @@ func validateMarker(path string) error {
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(io.LimitReader(file, 64*1024))
+	scanner := bufio.NewScanner(io.LimitReader(file, markerReadLimit))
 	foundVersion := false
 	for scanner.Scan() {
 		line := strings.TrimSpace(strings.SplitN(scanner.Text(), "#", 2)[0])
@@ -103,7 +111,7 @@ func validateMarker(path string) error {
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) == 2 && strings.TrimSpace(parts[0]) == "version" {
 			foundVersion = true
-			if strings.TrimSpace(parts[1]) != "1" {
+			if strings.TrimSpace(parts[1]) != markerVersion {
 				return fmt.Errorf("unsupported workspace marker version in %s", path)
 			}
 		}
@@ -112,7 +120,7 @@ func validateMarker(path string) error {
 		return fmt.Errorf("read workspace marker: %w", err)
 	}
 	if !foundVersion {
-		return fmt.Errorf("workspace marker %s must contain 'version = 1'", path)
+		return fmt.Errorf("workspace marker %s must contain 'version = %s'", path, markerVersion)
 	}
 	return nil
 }
@@ -134,7 +142,7 @@ func gitTopLevel(cwd string) (string, error) {
 func identify(root, source string) Workspace {
 	fingerprint := repositoryFingerprint(root)
 	hash := sha256.New()
-	hash.Write([]byte("cfs:v1\x00"))
+	hash.Write([]byte(contextHashPrefix))
 	hash.Write([]byte(root))
 	hash.Write([]byte{0})
 	hash.Write([]byte(fingerprint))
@@ -153,11 +161,11 @@ func repositoryFingerprint(root string) string {
 	command.Stderr = nil
 	raw, err := command.Output()
 	if err != nil {
-		return "none"
+		return missingFingerprint
 	}
 	gitDir := strings.TrimSpace(string(raw))
 	if gitDir == "" {
-		return "none"
+		return missingFingerprint
 	}
 	if real, err := filepath.EvalSymlinks(gitDir); err == nil {
 		gitDir = real

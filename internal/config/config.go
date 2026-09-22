@@ -7,9 +7,16 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+
+	"github.com/zongqichen/cfs/internal/envvar"
+	"github.com/zongqichen/cfs/internal/securefs"
 )
 
-const CurrentVersion = 1
+const (
+	CurrentVersion  = 1
+	applicationName = "cfs"
+	configFileName  = "config.json"
+)
 
 var ErrNotConfigured = errors.New("cfs is not configured")
 
@@ -21,7 +28,7 @@ type Config struct {
 }
 
 func FilePath() (string, error) {
-	if value := os.Getenv("CFS_CONFIG_FILE"); value != "" {
+	if value := os.Getenv(envvar.ConfigFile); value != "" {
 		return filepath.Abs(value)
 	}
 
@@ -29,7 +36,7 @@ func FilePath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve user config directory: %w", err)
 	}
-	return filepath.Join(dir, "cfs", "config.json"), nil
+	return filepath.Join(dir, applicationName, configFileName), nil
 }
 
 func StateRoot(cfg Config) (string, error) {
@@ -40,7 +47,7 @@ func StateRoot(cfg Config) (string, error) {
 		}
 		return validateStateRoot(root)
 	}
-	if value := os.Getenv("CFS_STATE_HOME"); value != "" {
+	if value := os.Getenv(envvar.StateHome); value != "" {
 		root, err := filepath.Abs(value)
 		if err != nil {
 			return "", err
@@ -55,9 +62,9 @@ func StateRoot(cfg Config) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("resolve user home: %w", err)
 		}
-		root = filepath.Join(home, "Library", "Application Support", "cfs")
+		root = filepath.Join(home, "Library", "Application Support", applicationName)
 	case "windows":
-		base := os.Getenv("LOCALAPPDATA")
+		base := os.Getenv(envvar.LocalAppData)
 		if base == "" {
 			var err error
 			base, err = os.UserConfigDir()
@@ -65,9 +72,9 @@ func StateRoot(cfg Config) (string, error) {
 				return "", fmt.Errorf("resolve local application data: %w", err)
 			}
 		}
-		root = filepath.Join(base, "cfs")
+		root = filepath.Join(base, applicationName)
 	default:
-		base := os.Getenv("XDG_STATE_HOME")
+		base := os.Getenv(envvar.XDGStateHome)
 		if base == "" {
 			home, err := os.UserHomeDir()
 			if err != nil {
@@ -75,7 +82,7 @@ func StateRoot(cfg Config) (string, error) {
 			}
 			base = filepath.Join(home, ".local", "state")
 		}
-		root = filepath.Join(base, "cfs")
+		root = filepath.Join(base, applicationName)
 	}
 
 	return validateStateRoot(root)
@@ -101,7 +108,7 @@ func validateStateRoot(root string) (string, error) {
 }
 
 func DefaultShimDir() (string, error) {
-	if value := os.Getenv("CFS_SHIM_DIR"); value != "" {
+	if value := os.Getenv(envvar.ShimDir); value != "" {
 		return filepath.Abs(value)
 	}
 
@@ -109,7 +116,7 @@ func DefaultShimDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve user home: %w", err)
 	}
-	return filepath.Join(home, ".local", "share", "cfs", "shims"), nil
+	return filepath.Join(home, ".local", "share", applicationName, "shims"), nil
 }
 
 func Load() (Config, error) {
@@ -148,36 +155,8 @@ func Save(cfg Config) error {
 		cfg.Version = CurrentVersion
 	}
 
-	raw, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encode configuration: %w", err)
-	}
-	raw = append(raw, '\n')
-
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return fmt.Errorf("create configuration directory: %w", err)
-	}
-
-	temporary, err := os.CreateTemp(filepath.Dir(path), "config-*.tmp")
-	if err != nil {
-		return fmt.Errorf("create temporary configuration: %w", err)
-	}
-	temporaryPath := temporary.Name()
-	defer os.Remove(temporaryPath)
-
-	if err := temporary.Chmod(0o600); err != nil {
-		temporary.Close()
-		return fmt.Errorf("set configuration permissions: %w", err)
-	}
-	if _, err := temporary.Write(raw); err != nil {
-		temporary.Close()
-		return fmt.Errorf("write configuration: %w", err)
-	}
-	if err := temporary.Close(); err != nil {
-		return fmt.Errorf("close configuration: %w", err)
-	}
-	if err := os.Rename(temporaryPath, path); err != nil {
-		return fmt.Errorf("replace configuration: %w", err)
+	if err := securefs.WriteJSONAtomic(path, cfg); err != nil {
+		return fmt.Errorf("save configuration: %w", err)
 	}
 	return nil
 }
