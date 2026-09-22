@@ -23,8 +23,12 @@ func TestResolveCanonicalizesExecutableSymlink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != target {
-		t.Fatalf("Resolve() = %q, want %q", got, target)
+	want, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Fatalf("Resolve() = %q, want %q", got, want)
 	}
 }
 
