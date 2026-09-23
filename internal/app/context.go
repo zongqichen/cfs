@@ -70,7 +70,7 @@ func resolveManagedContextFromWorkspaceAndName(cfg config.Config, ws workspace.W
 }
 
 func (managed managedContext) activate(timeout time.Duration) (*lock.Lock, error) {
-	if err := managed.Store.Prepare(managed.Context); err != nil {
+	if err := managed.Store.PrepareRoot(); err != nil {
 		return nil, err
 	}
 	workspaceLock, err := lock.Acquire(managed.Context.LockPath, timeout)
@@ -105,7 +105,11 @@ func (managed managedContext) activateExisting(timeout time.Duration) (*lock.Loc
 		return nil, err
 	}
 	if _, err := managed.Store.ValidateForWorkspace(managed.Context, managed.Workspace); err != nil {
-		return nil, errors.Join(err, contextLock.Release())
+		releaseErr := contextLock.Release()
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, errors.Join(fmt.Errorf("%w: %s", errContextNotFound, managed.Context.Name), releaseErr)
+		}
+		return nil, errors.Join(err, releaseErr)
 	}
 	if err := managed.Store.Ensure(managed.Context, managed.Workspace); err != nil {
 		return nil, errors.Join(err, contextLock.Release())

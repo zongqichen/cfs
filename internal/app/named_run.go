@@ -20,7 +20,7 @@ func parseNamedInvocation(args []string) (string, []string, bool, error) {
 	switch {
 	case args[0] == "-c" || args[0] == "--context":
 		if len(args) < 2 {
-			return "", nil, true, errors.New("--context requires a name")
+			return "", nil, true, errors.New("-c/--context requires a name")
 		}
 		name = args[1]
 		args = args[2:]

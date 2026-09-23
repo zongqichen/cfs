@@ -18,7 +18,7 @@ func TestParseNamedInvocation(t *testing.T) {
 		{name: "long flag", args: []string{"--context", "poc", "target"}, wantName: "poc", wantArgs: []string{"target"}, wantNamed: true},
 		{name: "long equals flag", args: []string{"--context=dev", "logs", "api"}, wantName: "dev", wantArgs: []string{"logs", "api"}, wantNamed: true},
 		{name: "control command", args: []string{"context", "list"}},
-		{name: "missing name", args: []string{"-c"}, wantNamed: true, wantError: "requires a name"},
+		{name: "missing name", args: []string{"-c"}, wantNamed: true, wantError: "-c/--context requires a name"},
 		{name: "missing command", args: []string{"-c", "prod"}, wantNamed: true, wantError: "requires a CF command"},
 		{name: "invalid name", args: []string{"-c", "Prod", "apps"}, wantNamed: true, wantError: "invalid context name"},
 	}

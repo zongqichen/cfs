@@ -4,10 +4,12 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/zongqichen/cfs/internal/lock"
 	"github.com/zongqichen/cfs/internal/store"
@@ -136,6 +138,41 @@ func TestNamedContextLocksAreIndependent(t *testing.T) {
 	requireAppSuccess(t, "different-context command", independent)
 }
 
+func TestBusyContextCreateDoesNotLeaveIncompleteState(t *testing.T) {
+	fakeCF := writeFakeCF(t)
+	stateRoot := canonicalTestPath(t, t.TempDir())
+	configureTestEnvironment(t, fakeCF, stateRoot)
+	root := markerWorkspace(t)
+	ws, err := workspace.Resolve(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateStore := store.New(stateRoot)
+	ctx, err := stateStore.ContextForName(ws, "prod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stateStore.PrepareRoot(); err != nil {
+		t.Fatal(err)
+	}
+	held, err := lock.Acquire(ctx.LockPath, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held.Release()
+
+	created := runFromDirectory(t, root, []string{"cfs", "context", "create", "prod"})
+	if created.code != exitTemporary {
+		t.Fatalf("busy context create = %#v", created)
+	}
+	if _, err := os.Stat(ctx.Dir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("busy create left context state: %v", err)
+	}
+	listed := runFromDirectory(t, root, []string{"cfs", "context", "list", "--json"})
+	requireAppSuccess(t, "context list after busy create", listed)
+	assertContextList(t, listed.stdout, map[string]bool{"default": false})
+}
+
 func TestNamedInvocationRejectsExternalCFHome(t *testing.T) {
 	fakeCF := writeFakeCF(t)
 	configureTestEnvironment(t, fakeCF, canonicalTestPath(t, t.TempDir()))
@@ -168,6 +205,54 @@ func TestShimAcceptsValidatedNestedNamedContext(t *testing.T) {
 		t.Fatalf("nested CF_HOME = %q, want %q", got, home)
 	}
 }
+
+func TestActivateExistingReportsContextRemovedWhileWaitingForLock(t *testing.T) {
+	stateRoot := canonicalTestPath(t, t.TempDir())
+	stateStore := store.New(stateRoot)
+	ws := workspace.Workspace{
+		Root: markerWorkspace(t), Source: "test",
+		ID: strings.Repeat("4", 64), Fingerprint: "fingerprint",
+	}
+	ctx, err := stateStore.ContextForName(ws, "prod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stateStore.Ensure(ctx, ws); err != nil {
+		t.Fatal(err)
+	}
+	held, err := lock.Acquire(ctx.LockPath, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	type activationResult struct {
+		contextLock *lock.Lock
+		err         error
+	}
+	result := make(chan activationResult, 1)
+	go func() {
+		contextLock, activateErr := (managedContext{Workspace: ws, Context: ctx, Store: stateStore}).activateExisting(time.Second)
+		result <- activationResult{contextLock: contextLock, err: activateErr}
+	}()
+	time.Sleep(2 * lockRetryIntervalForTest)
+	if _, err := stateStore.MoveToTrash(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := held.Release(); err != nil {
+		t.Fatal(err)
+	}
+
+	activation := <-result
+	if activation.contextLock != nil {
+		_ = activation.contextLock.Release()
+		t.Fatal("activateExisting() returned a lock for a removed context")
+	}
+	if !errors.Is(activation.err, errContextNotFound) {
+		t.Fatalf("activateExisting() error = %v, want errContextNotFound", activation.err)
+	}
+}
+
+const lockRetryIntervalForTest = 50 * time.Millisecond
 
 func createNamedContext(t *testing.T, root, name string) {
 	t.Helper()

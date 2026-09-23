@@ -258,6 +258,9 @@ func (s Store) List() ([]Entry, error) {
 			continue
 		}
 		metadata, err := s.ReadMetadata(ctx)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}

@@ -51,7 +51,7 @@ func commandContext(options Options, args []string) int {
 	}
 }
 
-func commandContextCreate(options Options, args []string) int {
+func commandContextCreate(options Options, args []string) (exitCode int) {
 	if isHelpRequest(args) {
 		printContextSubcommandHelp(options.Stdout, "Create an empty named context.", "cfs context create <name>")
 		return exitOK
@@ -69,21 +69,14 @@ func commandContextCreate(options Options, args []string) int {
 	if !ok {
 		return code
 	}
-	if err := managed.Store.Prepare(managed.Context); err != nil {
-		fprintf(options.Stderr, "cfs: prepare context %q: %v\n", name, err)
-		return exitError
-	}
-	if _, err := managed.Store.ValidateForWorkspace(managed.Context, managed.Workspace); err == nil {
-		fprintf(options.Stderr, "cfs: context %q already exists\n", name)
-		return exitUsage
-	} else if !errors.Is(err, os.ErrNotExist) {
-		fprintf(options.Stderr, "cfs: inspect context %q: %v\n", name, err)
-		return exitError
-	}
 	timeout, err := lockTimeout()
 	if err != nil {
 		fprintf(options.Stderr, "cfs: %v\n", err)
 		return exitUsage
+	}
+	if err := managed.Store.PrepareRoot(); err != nil {
+		fprintf(options.Stderr, "cfs: prepare context store: %v\n", err)
+		return exitError
 	}
 	contextLock, err := lock.Acquire(managed.Context.LockPath, timeout)
 	if errors.Is(err, lock.ErrBusy) {
@@ -94,22 +87,23 @@ func commandContextCreate(options Options, args []string) int {
 		fprintf(options.Stderr, "cfs: create context %q: %v\n", name, err)
 		return exitError
 	}
+	defer func() {
+		if releaseErr := contextLock.Release(); releaseErr != nil {
+			fprintf(options.Stderr, "cfs: %v\n", releaseErr)
+			if exitCode == exitOK {
+				exitCode = exitError
+			}
+		}
+	}()
 	if _, err := managed.Store.ValidateForWorkspace(managed.Context, managed.Workspace); err == nil {
-		_ = contextLock.Release()
 		fprintf(options.Stderr, "cfs: context %q already exists\n", name)
 		return exitUsage
 	} else if !errors.Is(err, os.ErrNotExist) {
-		_ = contextLock.Release()
 		fprintf(options.Stderr, "cfs: inspect context %q: %v\n", name, err)
 		return exitError
 	}
 	if err := managed.Store.Ensure(managed.Context, managed.Workspace); err != nil {
-		_ = contextLock.Release()
 		fprintf(options.Stderr, "cfs: create context %q: %v\n", name, err)
-		return exitError
-	}
-	if err := contextLock.Release(); err != nil {
-		fprintf(options.Stderr, "cfs: %v\n", err)
 		return exitError
 	}
 	fprintf(options.Stdout, "Created context %q.\n", name)

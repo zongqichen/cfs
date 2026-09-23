@@ -225,6 +225,40 @@ func TestListForWorkspaceReturnsOnlyItsNamedContexts(t *testing.T) {
 	}
 }
 
+func TestListSkipsIncompleteContextWithoutHidingValidEntries(t *testing.T) {
+	root := t.TempDir()
+	s := New(root)
+	ws := workspace.Workspace{
+		Root: filepath.Join(root, "project"), Source: "test",
+		ID: strings.Repeat("3", 64), Fingerprint: "fingerprint",
+	}
+	if err := os.MkdirAll(ws.Root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	valid, err := s.ContextFor(ws)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Ensure(valid, ws); err != nil {
+		t.Fatal(err)
+	}
+	incomplete, err := s.ContextForName(ws, "interrupted")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Prepare(incomplete); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := s.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Context.ID != valid.ID {
+		t.Fatalf("List() = %#v, want only the valid context", entries)
+	}
+}
+
 func TestMoveToTrashIsRecoverable(t *testing.T) {
 	root := t.TempDir()
 	s := New(root)
