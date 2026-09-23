@@ -36,7 +36,7 @@ func commandImport(options Options, args []string) (exitCode int) {
 	}
 	managed, err := resolveManagedContext(cfg)
 	if err != nil {
-		fprintf(options.Stderr, "cfs: %v\n", err)
+		reportWorkspaceError(options, err)
 		return exitUnavailable
 	}
 
@@ -50,18 +50,6 @@ func commandImport(options Options, args []string) (exitCode int) {
 		fprintf(options.Stderr, "Hint: run 'CFS_DISABLE=1 cf login' first.\n")
 		return exitUnavailable
 	}
-
-	if !*yes {
-		prompt := "Import global CF credentials into " + managed.Workspace.Root + "?"
-		if *force {
-			prompt = "Replace this workspace's CF context with the global context?"
-		}
-		confirmed, code := confirm(options, "import", prompt)
-		if !confirmed {
-			return code
-		}
-	}
-
 	timeout, err := lockTimeout()
 	if err != nil {
 		fprintf(options.Stderr, "cfs: %v\n", err)
@@ -93,6 +81,16 @@ func commandImport(options Options, args []string) (exitCode int) {
 	if existing && !*force {
 		fprintf(options.Stderr, "cfs: workspace already has an active CF target; use --force to replace it\n")
 		return exitUsage
+	}
+	if !*yes {
+		prompt := "Import the global CF context, including any credentials, into " + managed.Workspace.Root + "?"
+		if existing {
+			prompt = "Replace this workspace's CF context with the global context?"
+		}
+		confirmed, code := confirm(options, "import", prompt)
+		if !confirmed {
+			return code
+		}
 	}
 	if err := cfhome.Import(globalHome, managed.Context.CFHome); err != nil {
 		fprintf(options.Stderr, "cfs: import failed: %v\n", err)

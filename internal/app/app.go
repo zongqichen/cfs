@@ -13,7 +13,6 @@ import (
 	"github.com/zongqichen/cfs/internal/executable"
 	"github.com/zongqichen/cfs/internal/lock"
 	"github.com/zongqichen/cfs/internal/runner"
-	"github.com/zongqichen/cfs/internal/workspace"
 )
 
 const (
@@ -78,15 +77,14 @@ func runShim(options Options, args []string) int {
 
 	managed, err := resolveManagedContext(cfg)
 	if err != nil {
-		if errors.Is(err, workspace.ErrNotFound) {
-			fprintf(options.Stderr, "cfs: no workspace could be resolved; refusing to use the global CF home\n")
-			fprintf(options.Stderr, "Hint: run this command inside a Git worktree or set %s.\n", envvar.WorkspaceRoot)
-		} else {
-			fprintf(options.Stderr, "cfs: %v\n", err)
-		}
+		reportWorkspaceError(options, err)
 		return exitUnavailable
 	}
-	suggestImport, _ := importAvailableForEmptyWorkspace(cfg.RealCFPath, managed.Context.CFHome)
+	workspaceWasEmpty, err := workspaceConfigMissing(managed.Context.CFHome)
+	if err != nil {
+		fprintf(options.Stderr, "cfs: inspect workspace CF state: %v\n", err)
+		return exitError
+	}
 
 	timeout, err := lockTimeout()
 	if err != nil {
@@ -106,13 +104,16 @@ func runShim(options Options, args []string) int {
 
 	env := managed.environment(os.Environ())
 	exitCode := invokeOfficial(options, cfg.RealCFPath, args, env)
-	if exitCode != exitOK && suggestImport {
-		fprintf(options.Stderr, "cfs: a global CF context is available; run 'cfs import' to use it here.\n")
-	}
+	commandFailed := exitCode != exitOK
 	if err := workspaceLock.Release(); err != nil {
 		fprintf(options.Stderr, "cfs: %v\n", err)
 		if exitCode == exitOK {
 			return exitError
+		}
+	}
+	if commandFailed && workspaceWasEmpty {
+		if _, available, _ := globalTargetAvailable(cfg.RealCFPath); available {
+			fprintf(options.Stderr, "cfs: a global CF context is available; run 'cfs import' to use it here.\n")
 		}
 	}
 	return exitCode

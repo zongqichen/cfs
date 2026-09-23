@@ -35,11 +35,10 @@ func globalTargetAvailable(realCF string) (string, bool, error) {
 	return home, available, err
 }
 
-func importAvailableForEmptyWorkspace(realCF, workspaceHome string) (bool, error) {
+func workspaceConfigMissing(workspaceHome string) (bool, error) {
 	exists, err := cfhome.HasConfig(workspaceHome)
-	if err != nil || exists {
+	if err != nil {
 		return false, err
 	}
-	_, available, err := globalTargetAvailable(realCF)
-	return available, err
+	return !exists, nil
 }

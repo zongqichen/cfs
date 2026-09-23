@@ -48,6 +48,13 @@ func TestImportCopiesGlobalContextIntoWorkspace(t *testing.T) {
 	if string(got) != string(want) {
 		t.Fatalf("imported configuration = %q, want %q", got, want)
 	}
+	sourceAfter, err := os.ReadFile(cfhome.ConfigPath(globalHome))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(sourceAfter) != string(want) {
+		t.Fatalf("global configuration changed: %q", sourceAfter)
+	}
 	if info, err := os.Stat(cfhome.ConfigPath(ctx.CFHome)); err != nil {
 		t.Fatal(err)
 	} else if info.Mode().Perm() != 0o600 {
@@ -88,7 +95,7 @@ func TestImportRefusesToReplaceActiveTargetWithoutForce(t *testing.T) {
 	}
 	writeCFConfig(t, globalHome, []byte(`{"Target":"second"}`))
 
-	refused := runFromDirectory(t, root, []string{"cfs", "import", "--yes"})
+	refused := runFromDirectory(t, root, []string{"cfs", "import"})
 	if refused.code != exitUsage || !strings.Contains(refused.stderr, "use --force") {
 		t.Fatalf("second import = %#v", refused)
 	}
@@ -115,6 +122,19 @@ func TestImportReportsMissingGlobalTarget(t *testing.T) {
 
 	result := runFromDirectory(t, markerWorkspace(t), []string{"cfs", "import", "--yes"})
 	if result.code != exitUnavailable || !strings.Contains(result.stderr, "no active global CF target") {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestImportOutsideWorkspaceIncludesResolutionHint(t *testing.T) {
+	fakeCF := writeTargetAwareFakeCF(t)
+	configureTestEnvironment(t, fakeCF, t.TempDir())
+	globalHome := t.TempDir()
+	t.Setenv("HOME", globalHome)
+	writeCFConfig(t, globalHome, []byte(`{"Target":"global"}`))
+
+	result := runFromDirectory(t, t.TempDir(), []string{"cfs", "import", "--yes"})
+	if result.code != exitUnavailable || !strings.Contains(result.stderr, "CFS_WORKSPACE_ROOT") {
 		t.Fatalf("result = %#v", result)
 	}
 }
@@ -180,6 +200,28 @@ func TestShimSuggestsImportForFreshWorkspace(t *testing.T) {
 	}
 }
 
+func TestSuccessfulShimCommandDoesNotProbeGlobalTarget(t *testing.T) {
+	fakeCF := writeTargetAwareFakeCF(t)
+	configureTestEnvironment(t, fakeCF, t.TempDir())
+	globalHome := t.TempDir()
+	t.Setenv("HOME", globalHome)
+	writeCFConfig(t, globalHome, []byte(`{"Target":"global"}`))
+	callLog := filepath.Join(t.TempDir(), "calls")
+	t.Setenv("CFS_TEST_CALL_LOG", callLog)
+
+	result := runFromDirectory(t, markerWorkspace(t), []string{"cf", "version"})
+	if result.code != exitOK {
+		t.Fatalf("result = %#v", result)
+	}
+	raw, err := os.ReadFile(callLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(raw); got != "version\n" {
+		t.Fatalf("official CF invocations = %q, want only version", got)
+	}
+}
+
 func TestDoctorSuggestsImportForFreshWorkspace(t *testing.T) {
 	fakeCF := writeTargetAwareFakeCF(t)
 	configureTestEnvironment(t, fakeCF, t.TempDir())
@@ -207,6 +249,9 @@ func writeTargetAwareFakeCF(t *testing.T) string {
 	path := filepath.Join(t.TempDir(), "cf-real")
 	script := `#!/bin/sh
 config=$CF_HOME/.cf/config.json
+if [ -n "$CFS_TEST_CALL_LOG" ]; then
+  printf '%s\n' "$1" >>"$CFS_TEST_CALL_LOG"
+fi
 if [ "$1" = "target" ]; then
   [ -s "$config" ] && grep -q '"Target"' "$config"
   exit $?
