@@ -9,6 +9,9 @@ contract may still change while cfs is pre-1.0.
 
 ### Added
 
+- Added native Windows amd64 support with a checksum-tracked executable shim,
+  `LockFileEx` workspace locking, Windows path and environment handling, CI,
+  end-to-end coverage, and ZIP release artifacts.
 - Added `cfs import` for explicitly copying an existing global CF context into
   a workspace, with confirmation, automation, and overwrite safeguards.
 - Added redacted status output for shared logs and workspace-target guidance to
