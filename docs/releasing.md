@@ -80,21 +80,18 @@ release from an unreviewed local commit.
 ## Distribution
 
 A semantic version tag makes the command installable through the Go toolchain,
-but does not publish GitHub archives on its own:
+but does not publish GitHub archives on its own. Replace `vX.Y.Z` with the
+release tag:
 
 ```console
-$ go install github.com/zongqichen/cfs/cmd/cfs@v0.1.0
+$ go install github.com/zongqichen/cloud-foundry-cli-contexts/cmd/cfs@vX.Y.Z
 ```
-
-The Go module intentionally keeps its original `github.com/zongqichen/cfs`
-path after the repository rename. Changing it would break existing installation
-and update paths.
 
 After pushing the immutable tag and manually running the Release workflow,
 request it through the public Go proxy:
 
 ```console
-$ GOPROXY=proxy.golang.org go list -m github.com/zongqichen/cfs@v0.1.0
+$ GOPROXY=proxy.golang.org go list -m github.com/zongqichen/cloud-foundry-cli-contexts@vX.Y.Z
 ```
 
 GitHub Release archives are the recommended initial distribution. A separate

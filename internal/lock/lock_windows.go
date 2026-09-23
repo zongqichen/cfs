@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/zongqichen/cfs/internal/securefs"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/securefs"
 	"golang.org/x/sys/windows"
 )
 

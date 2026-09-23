@@ -1,4 +1,4 @@
-module github.com/zongqichen/cfs
+module github.com/zongqichen/cloud-foundry-cli-contexts
 
 go 1.26.8
 

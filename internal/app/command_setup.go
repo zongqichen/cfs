@@ -3,7 +3,7 @@ package app
 import (
 	"path/filepath"
 
-	"github.com/zongqichen/cfs/internal/install"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/install"
 )
 
 func commandSetup(options Options, args []string) int {

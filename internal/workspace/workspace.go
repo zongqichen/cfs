@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/zongqichen/cfs/internal/envvar"
-	"github.com/zongqichen/cfs/internal/pathutil"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/envvar"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/pathutil"
 )
 
 const (

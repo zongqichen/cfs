@@ -4,8 +4,8 @@ import (
 	"os"
 	"runtime/debug"
 
-	"github.com/zongqichen/cfs/internal/app"
-	"github.com/zongqichen/cfs/internal/updatecheck"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/app"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/updatecheck"
 )
 
 var version = "dev"

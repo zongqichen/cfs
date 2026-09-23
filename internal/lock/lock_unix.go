@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/zongqichen/cfs/internal/securefs"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/securefs"
 )
 
 type Lock struct {

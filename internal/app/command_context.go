@@ -8,11 +8,11 @@ import (
 	"sort"
 	"text/tabwriter"
 
-	"github.com/zongqichen/cfs/internal/config"
-	"github.com/zongqichen/cfs/internal/contextname"
-	"github.com/zongqichen/cfs/internal/lock"
-	"github.com/zongqichen/cfs/internal/store"
-	"github.com/zongqichen/cfs/internal/workspace"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/config"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/contextname"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/lock"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/store"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/workspace"
 )
 
 type contextListItem struct {

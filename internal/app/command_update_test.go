@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zongqichen/cfs/internal/envvar"
-	"github.com/zongqichen/cfs/internal/updatecheck"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/envvar"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/updatecheck"
 )
 
 func TestUpdateReportsAvailableRelease(t *testing.T) {
@@ -25,7 +25,7 @@ func TestUpdateReportsAvailableRelease(t *testing.T) {
 	for _, expected := range []string{
 		"Update available: 0.2.0 -> 0.3.0",
 		"https://github.com/zongqichen/cloud-foundry-cli-contexts/releases/tag/v0.3.0",
-		"go install github.com/zongqichen/cfs/cmd/cfs@v0.3.0",
+		"go install github.com/zongqichen/cloud-foundry-cli-contexts/cmd/cfs@v0.3.0",
 		"cfs setup",
 		"cfs doctor",
 	} {
@@ -228,7 +228,7 @@ func availableUpdate() updatecheck.Result {
 		Status:          updatecheck.StatusUpdateAvailable,
 		ReleaseURL:      "https://github.com/zongqichen/cloud-foundry-cli-contexts/releases/tag/v0.3.0",
 		Commands: []string{
-			"go install github.com/zongqichen/cfs/cmd/cfs@v0.3.0",
+			"go install github.com/zongqichen/cloud-foundry-cli-contexts/cmd/cfs@v0.3.0",
 			"cfs setup",
 			"cfs doctor",
 		},

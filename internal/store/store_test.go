@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zongqichen/cfs/internal/contextname"
-	"github.com/zongqichen/cfs/internal/workspace"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/contextname"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/workspace"
 )
 
 func TestContextForNameKeepsDefaultIdentityAndSeparatesNames(t *testing.T) {

@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/zongqichen/cfs/internal/config"
-	"github.com/zongqichen/cfs/internal/executable"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/config"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/executable"
 )
 
 const shimDirectoryMode = 0o755

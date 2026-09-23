@@ -6,10 +6,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/zongqichen/cfs/internal/config"
-	"github.com/zongqichen/cfs/internal/contextname"
-	"github.com/zongqichen/cfs/internal/envvar"
-	"github.com/zongqichen/cfs/internal/runner"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/config"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/contextname"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/envvar"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/runner"
 )
 
 type statusOutput struct {

@@ -12,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/zongqichen/cfs/internal/securefs"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/securefs"
 )
 
 const (

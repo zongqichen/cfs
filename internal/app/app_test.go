@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zongqichen/cfs/internal/envvar"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/envvar"
 )
 
 func TestCFInvocationWithoutExecutableSuffixUsesShim(t *testing.T) {

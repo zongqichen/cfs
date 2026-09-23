@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/zongqichen/cfs/internal/config"
-	"github.com/zongqichen/cfs/internal/executable"
-	"github.com/zongqichen/cfs/internal/install"
-	"github.com/zongqichen/cfs/internal/workspace"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/config"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/executable"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/install"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/workspace"
 )
 
 type checkStatus string
