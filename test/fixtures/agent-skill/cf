@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+printf 'cf %s\n' "$*" >>"${CFS_AGENT_SMOKE_LOG:?}"
+printf 'unexpected direct cf invocation: %s\n' "$*" >&2
+exit 64

@@ -9,6 +9,8 @@ contract may still change while cfs is pre-1.0.
 
 ### Added
 
+- Added an optional Agent Skill for safe cfs context discovery and explicit
+  named-context routing in Codex, Claude Code, and other Agent Skills clients.
 - Added workspace-local named contexts for safely running multiple Cloud
   Foundry targets in one project through `cfs -c <name> ...`.
 - Added `cfs context create|list|status|remove` and named-context import through

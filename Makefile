@@ -1,4 +1,4 @@
-.PHONY: build format-check test test-race vet check security smoke e2e release-check
+.PHONY: build format-check test test-race vet check security smoke agent-smoke e2e release-check
 
 build:
 	go build -o bin/cfs ./cmd/cfs
@@ -22,6 +22,9 @@ security:
 
 smoke:
 	./scripts/smoke-real-cf.sh
+
+agent-smoke:
+	./scripts/smoke-agent-skill.sh
 
 e2e:
 	go test -count=1 -race -tags=e2e -v ./test/e2e

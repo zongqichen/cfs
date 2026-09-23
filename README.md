@@ -93,6 +93,16 @@ cfs status --json --redact
 cfs context status prod --json --redact
 ```
 
+The optional [cfs Agent Skill](.agents/skills/cfs/SKILL.md) teaches agents to
+discover existing contexts, fail closed on ambiguity, and preserve user
+authorization. Install that directory as `.agents/skills/cfs` for Codex. For
+Claude Code, copy it to `.claude/skills/cfs` or symlink that path to the
+canonical directory. No global agent settings are changed.
+
+To make invocation explicit, add `Use $cfs for Cloud Foundry context
+selection.` to `AGENTS.md`, or `Use /cfs for Cloud Foundry context selection.`
+to `CLAUDE.md`.
+
 ## How it works
 
 ```text
@@ -147,6 +157,7 @@ make check
 make security
 make release-check
 make smoke
+make agent-smoke
 CFS_REAL_CF=/path/to/official/cf make e2e
 ```
 
