@@ -227,7 +227,7 @@ func newTestEnvironment(t *testing.T) testEnvironment {
 	}
 
 	testPath := strings.Join([]string{shimDir, officialDir, binDir, os.Getenv("PATH")}, string(os.PathListSeparator))
-	env := replaceEnvironment(os.Environ(), map[string]string{
+	environment := map[string]string{
 		"HOME":                home,
 		"USERPROFILE":         home,
 		"PATH":                testPath,
@@ -246,7 +246,13 @@ func newTestEnvironment(t *testing.T) testEnvironment {
 		"CF_COLOR":            "false",
 		"LANG":                "C",
 		"LC_ALL":              "C",
-	})
+	}
+	if runtime.GOOS == "windows" {
+		volume := filepath.VolumeName(home)
+		environment["HOMEDRIVE"] = volume
+		environment["HOMEPATH"] = strings.TrimPrefix(home, volume)
+	}
+	env := replaceEnvironment(os.Environ(), environment)
 	env = removeEnvironment(env, "CF_HOME", "CF_PLUGIN_HOME", "CF_TRACE", "CFS_ACTIVE_CONTEXT", "CFS_DISABLE", "CFS_LOCK_TIMEOUT", "CFS_WORKSPACE_ROOT")
 	t.Setenv("PATH", testPath)
 
