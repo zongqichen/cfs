@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	DefaultEndpoint      = "https://api.github.com/repos/zongqichen/cfs/releases?per_page=100"
+	DefaultEndpoint      = "https://api.github.com/repos/zongqichen/cloud-foundry-cli-contexts/releases?per_page=100"
 	DefaultCheckInterval = 24 * time.Hour
 	DefaultHTTPTimeout   = 3 * time.Second
 
@@ -27,7 +27,8 @@ const (
 	cacheFileName        = "update-check.json"
 	cacheReadLimit       = 64 * 1024
 	responseReadLimit    = 1024 * 1024
-	repositoryReleaseURL = "https://github.com/zongqichen/cfs/releases/tag/"
+	repositoryReleaseURL = "https://github.com/zongqichen/cloud-foundry-cli-contexts/releases/tag/"
+	goInstallPackage     = "github.com/zongqichen/cfs/cmd/cfs"
 )
 
 type Status string
@@ -225,7 +226,7 @@ func compare(currentVersion, latestVersion string) Result {
 		result.Status = StatusUpdateAvailable
 		result.UpdateAvailable = true
 		result.Commands = []string{
-			"go install github.com/zongqichen/cfs/cmd/cfs@" + latest,
+			"go install " + goInstallPackage + "@" + latest,
 			"cfs setup",
 			"cfs doctor",
 		}

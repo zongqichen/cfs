@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   release:
-    if: github.repository == 'zongqichen/cfs'
+    if: github.repository == 'zongqichen/cloud-foundry-cli-contexts'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: release

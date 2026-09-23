@@ -86,6 +86,10 @@ but does not publish GitHub archives on its own:
 $ go install github.com/zongqichen/cfs/cmd/cfs@v0.1.0
 ```
 
+The Go module intentionally keeps its original `github.com/zongqichen/cfs`
+path after the repository rename. Changing it would break existing installation
+and update paths.
+
 After pushing the immutable tag and manually running the Release workflow,
 request it through the public Go proxy:
 

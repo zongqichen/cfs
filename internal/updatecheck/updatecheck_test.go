@@ -59,6 +59,21 @@ func TestCheckSelectsHighestPublishedSemanticVersion(t *testing.T) {
 	}
 }
 
+func TestRepositoryLocationsKeepGoInstallCompatibility(t *testing.T) {
+	const canonicalRepository = "zongqichen/cloud-foundry-cli-contexts"
+	if !strings.Contains(DefaultEndpoint, canonicalRepository) {
+		t.Fatalf("default endpoint = %q, want canonical repository", DefaultEndpoint)
+	}
+
+	result := compare("0.2.0", "v0.3.0")
+	if !strings.Contains(result.ReleaseURL, canonicalRepository) {
+		t.Fatalf("release URL = %q, want canonical repository", result.ReleaseURL)
+	}
+	if got, want := result.Commands[0], "go install github.com/zongqichen/cfs/cmd/cfs@v0.3.0"; got != want {
+		t.Fatalf("install command = %q, want %q", got, want)
+	}
+}
+
 func TestCompareVersionStates(t *testing.T) {
 	tests := []struct {
 		name      string

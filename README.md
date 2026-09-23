@@ -1,7 +1,7 @@
 # cfs: isolated Cloud Foundry CLI contexts
 
-[![CI](https://github.com/zongqichen/cfs/actions/workflows/ci.yml/badge.svg)](https://github.com/zongqichen/cfs/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/zongqichen/cfs?include_prereleases&sort=semver)](https://github.com/zongqichen/cfs/releases)
+[![CI](https://github.com/zongqichen/cloud-foundry-cli-contexts/actions/workflows/ci.yml/badge.svg)](https://github.com/zongqichen/cloud-foundry-cli-contexts/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/zongqichen/cloud-foundry-cli-contexts?include_prereleases&sort=semver)](https://github.com/zongqichen/cloud-foundry-cli-contexts/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 Run independent Cloud Foundry CLI targets in parallel.
@@ -19,13 +19,16 @@ targets.
 ## Quick start
 
 Install the [official CF CLI](https://github.com/cloudfoundry/cli), then download
-`cfs` from [GitHub Releases](https://github.com/zongqichen/cfs/releases) or build
+`cfs` from [GitHub Releases](https://github.com/zongqichen/cloud-foundry-cli-contexts/releases) or build
 it with Go 1.26.8+:
 
 ```sh
 go install github.com/zongqichen/cfs/cmd/cfs@latest
 cfs setup
 ```
+
+The Go module keeps its original `github.com/zongqichen/cfs` path for
+compatibility.
 
 Prebuilt binaries support Linux and macOS on x86-64 and arm64. Put the shim
 directory printed by `cfs setup` first on `PATH`, open a new shell, and run
@@ -122,7 +125,7 @@ discover existing contexts, fail closed on ambiguity, and preserve user
 authorization. Install it for Codex, Claude Code, or another supported agent:
 
 ```sh
-npx skills add zongqichen/cfs --skill cfs
+npx skills add zongqichen/cloud-foundry-cli-contexts --skill cfs
 ```
 
 To make invocation explicit, add `Use $cfs for Cloud Foundry context
