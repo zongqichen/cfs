@@ -459,6 +459,8 @@ internal/
   lock/                platform-specific process locks
   runner/              child process and signal forwarding
   install/             shim and shell PATH integration
+test/
+  e2e/                 official CLI and mock CF/UAA lifecycle tests
 ```
 
 Platform-specific files isolate Unix and Windows locking, permissions, signals,
@@ -510,6 +512,9 @@ The MVP is complete only when all of the following are demonstrated:
     user state.
 11. Import requires explicit confirmation, never prints credentials, and cannot
     replace an active workspace target without `--force`.
+
+The automated coverage for these criteria is documented in
+[testing.md](testing.md).
 
 ## 19. Architectural decision
 
