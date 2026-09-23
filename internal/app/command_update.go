@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/zongqichen/cfs/internal/envvar"
-	"github.com/zongqichen/cfs/internal/updatecheck"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/envvar"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/updatecheck"
 )
 
 func commandUpdate(options Options, args []string) int {

@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zongqichen/cfs/internal/contextname"
-	"github.com/zongqichen/cfs/internal/securefs"
-	"github.com/zongqichen/cfs/internal/workspace"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/contextname"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/securefs"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/workspace"
 )
 
 const (

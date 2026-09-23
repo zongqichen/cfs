@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/zongqichen/cfs/internal/executable"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/executable"
 )
 
 func installShim(path, target string) (bool, error) {

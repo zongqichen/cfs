@@ -7,14 +7,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/zongqichen/cfs/internal/config"
-	"github.com/zongqichen/cfs/internal/contextname"
-	"github.com/zongqichen/cfs/internal/envvar"
-	"github.com/zongqichen/cfs/internal/lock"
-	"github.com/zongqichen/cfs/internal/pathutil"
-	"github.com/zongqichen/cfs/internal/runner"
-	"github.com/zongqichen/cfs/internal/store"
-	"github.com/zongqichen/cfs/internal/workspace"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/config"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/contextname"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/envvar"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/lock"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/pathutil"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/runner"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/store"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/workspace"
 )
 
 const defaultLockTimeout = 3 * time.Second

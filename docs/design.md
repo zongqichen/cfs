@@ -78,7 +78,7 @@ Cloud Foundry deployments.
 Example future installation flow:
 
 ```console
-$ go install github.com/zongqichen/cfs/cmd/cfs@latest
+$ go install github.com/zongqichen/cloud-foundry-cli-contexts/cmd/cfs@latest
 $ cfs setup
 Found official CF CLI: /opt/homebrew/bin/cf
 Installed shim: /Users/alice/.local/share/cfs/shims/cf

@@ -1,6 +1,6 @@
 package app
 
-import "github.com/zongqichen/cfs/internal/install"
+import "github.com/zongqichen/cloud-foundry-cli-contexts/internal/install"
 
 func commandUninstall(options Options, args []string) int {
 	flags := newFlagSet("uninstall", options.Stderr)

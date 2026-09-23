@@ -4,9 +4,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/zongqichen/cfs/internal/cfhome"
-	"github.com/zongqichen/cfs/internal/envvar"
-	"github.com/zongqichen/cfs/internal/runner"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/cfhome"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/envvar"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/runner"
 )
 
 func targetAvailable(realCF, home string) (bool, error) {

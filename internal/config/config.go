@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/zongqichen/cfs/internal/envvar"
-	"github.com/zongqichen/cfs/internal/pathutil"
-	"github.com/zongqichen/cfs/internal/securefs"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/envvar"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/pathutil"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/securefs"
 )
 
 const (

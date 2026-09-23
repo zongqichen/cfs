@@ -53,13 +53,13 @@ func TestCheckSelectsHighestPublishedSemanticVersion(t *testing.T) {
 	if result.ReleaseURL != repositoryReleaseURL+"v0.3.0-rc.1" {
 		t.Fatalf("release URL = %q", result.ReleaseURL)
 	}
-	wantCommand := "go install github.com/zongqichen/cfs/cmd/cfs@v0.3.0-rc.1"
+	wantCommand := "go install github.com/zongqichen/cloud-foundry-cli-contexts/cmd/cfs@v0.3.0-rc.1"
 	if len(result.Commands) != 3 || result.Commands[0] != wantCommand {
 		t.Fatalf("commands = %q", result.Commands)
 	}
 }
 
-func TestRepositoryLocationsKeepGoInstallCompatibility(t *testing.T) {
+func TestRepositoryLocationsUseCanonicalPath(t *testing.T) {
 	const canonicalRepository = "zongqichen/cloud-foundry-cli-contexts"
 	if !strings.Contains(DefaultEndpoint, canonicalRepository) {
 		t.Fatalf("default endpoint = %q, want canonical repository", DefaultEndpoint)
@@ -69,7 +69,7 @@ func TestRepositoryLocationsKeepGoInstallCompatibility(t *testing.T) {
 	if !strings.Contains(result.ReleaseURL, canonicalRepository) {
 		t.Fatalf("release URL = %q, want canonical repository", result.ReleaseURL)
 	}
-	if got, want := result.Commands[0], "go install github.com/zongqichen/cfs/cmd/cfs@v0.3.0"; got != want {
+	if got, want := result.Commands[0], "go install github.com/zongqichen/cloud-foundry-cli-contexts/cmd/cfs@v0.3.0"; got != want {
 		t.Fatalf("install command = %q, want %q", got, want)
 	}
 }

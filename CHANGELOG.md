@@ -9,8 +9,8 @@ contract may still change while cfs is pre-1.0.
 
 ### Changed
 
-- Renamed the canonical repository to `cloud-foundry-cli-contexts` for clearer
-  discovery while preserving the `cfs` command and original Go module path.
+- Renamed the repository and Go module to `cloud-foundry-cli-contexts` for
+  clearer discovery while preserving the `cfs` command name.
 
 ## [0.3.0] - 2026-09-23
 

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/zongqichen/cfs/internal/pathutil"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/pathutil"
 )
 
 func Name(base string) string {

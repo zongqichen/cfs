@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zongqichen/cfs/internal/executable"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/executable"
 )
 
 func TestWindowsSetupAndUninstallShim(t *testing.T) {

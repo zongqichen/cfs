@@ -10,10 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zongqichen/cfs/internal/config"
-	"github.com/zongqichen/cfs/internal/lock"
-	"github.com/zongqichen/cfs/internal/store"
-	"github.com/zongqichen/cfs/internal/workspace"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/config"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/lock"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/store"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/workspace"
 )
 
 func TestShimUsesWorkspaceSpecificCFHome(t *testing.T) {

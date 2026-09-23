@@ -4,11 +4,11 @@ import (
 	"errors"
 	"os"
 
-	"github.com/zongqichen/cfs/internal/cfhome"
-	"github.com/zongqichen/cfs/internal/config"
-	"github.com/zongqichen/cfs/internal/contextname"
-	"github.com/zongqichen/cfs/internal/envvar"
-	"github.com/zongqichen/cfs/internal/lock"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/cfhome"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/config"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/contextname"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/envvar"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/lock"
 )
 
 func commandImport(options Options, args []string) (exitCode int) {

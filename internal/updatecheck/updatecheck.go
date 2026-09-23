@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zongqichen/cfs/internal/lock"
-	"github.com/zongqichen/cfs/internal/securefs"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/lock"
+	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/securefs"
 	"golang.org/x/mod/semver"
 )
 
@@ -28,7 +28,7 @@ const (
 	cacheReadLimit       = 64 * 1024
 	responseReadLimit    = 1024 * 1024
 	repositoryReleaseURL = "https://github.com/zongqichen/cloud-foundry-cli-contexts/releases/tag/"
-	goInstallPackage     = "github.com/zongqichen/cfs/cmd/cfs"
+	goInstallPackage     = "github.com/zongqichen/cloud-foundry-cli-contexts/cmd/cfs"
 )
 
 type Status string
