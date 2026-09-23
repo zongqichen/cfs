@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +14,8 @@ import (
 	"github.com/zongqichen/cfs/internal/executable"
 	"github.com/zongqichen/cfs/internal/lock"
 	"github.com/zongqichen/cfs/internal/runner"
+	"github.com/zongqichen/cfs/internal/updatecheck"
+	"golang.org/x/term"
 )
 
 const (
@@ -24,13 +27,20 @@ const (
 )
 
 type Options struct {
-	Args      []string
-	Stdin     io.Reader
-	Stdout    io.Writer
-	Stderr    io.Writer
-	Version   string
-	Commit    string
-	BuildDate string
+	Args          []string
+	Stdin         io.Reader
+	Stdout        io.Writer
+	Stderr        io.Writer
+	Version       string
+	Commit        string
+	BuildDate     string
+	Updates       UpdateService
+	IsInteractive func(io.Writer) bool
+}
+
+type UpdateService interface {
+	Check(context.Context, string) (updatecheck.Result, error)
+	Notification(context.Context, string) (updatecheck.Result, bool, error)
 }
 
 func Run(options Options) int {
@@ -169,7 +179,15 @@ func withDefaultStreams(options Options) Options {
 	if options.Stderr == nil {
 		options.Stderr = os.Stderr
 	}
+	if options.IsInteractive == nil {
+		options.IsInteractive = isOutputTerminal
+	}
 	return options
+}
+
+func isOutputTerminal(writer io.Writer) bool {
+	file, ok := writer.(*os.File)
+	return ok && term.IsTerminal(int(file.Fd()))
 }
 
 func fprintf(writer io.Writer, format string, values ...any) {

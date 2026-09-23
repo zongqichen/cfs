@@ -68,6 +68,8 @@ Cloud Foundry deployments.
    overwritten, renamed, or deleted.
 10. **No telemetry by default.** The product does not collect command
     arguments, target names, credentials, or usage data.
+11. **Updates stay off the data path.** Release checks never run from the
+    transparent `cf` shim and never change the installed executable.
 
 ## 4. User experience
 
@@ -191,15 +193,31 @@ The initial control interface is deliberately small:
 | `cfs gc` | Report orphaned workspace state; deletion requires `--apply`. |
 | `cfs uninstall` | Remove the shim and PATH integration, preserving state. |
 | `cfs version` | Print the `cfs` version and build information. |
+| `cfs update` | Check published releases and print safe update guidance. |
 | `cfs help [command]` | Show global or command-specific help. |
 
 Global conventions:
 
 - `--json` produces stable JSON for `status`, `context list`, `context status`,
-  `doctor`, and `gc`.
+  `doctor`, `gc`, and `update`.
 - Errors use the form `cfs: <message>`.
 - Interactive prompts are never used when standard input is not a terminal.
 - Destructive commands require an explicit flag in non-interactive mode.
+
+### 5.1 Update discovery
+
+`cfs update` compares the running version with published semantic-version tags
+from the public GitHub Releases API. Drafts and malformed tags are ignored;
+pre-1.0 GitHub pre-releases are included. The command is read-only and reports
+the release URL plus commands for the existing Go installation path. Package
+managers remain responsible for replacing the executable.
+
+Successful interactive control commands may perform the same check at most once
+per 24 hours and show one notice for each new version. The cache contains only
+public version metadata. Passive checks are disabled for the `cf` shim, JSON
+output, CI, non-terminal output, development builds, and when
+`CFS_NO_UPDATE_CHECK=1` is set. Network and cache failures never change the
+original command's output or exit status.
 
 Context names contain 1–63 lowercase ASCII letters or digits, with dots,
 hyphens, and underscores permitted internally. Unknown or invalid names fail
@@ -487,6 +505,7 @@ internal/
   lock/                platform-specific process locks
   runner/              child process and signal forwarding
   install/             shim and shell PATH integration
+  updatecheck/         published-release lookup and notification cache
 test/
   e2e/                 official CLI and mock CF/UAA lifecycle tests
 ```
@@ -506,7 +525,7 @@ The first usable release includes:
 - Per-context exclusive locking.
 - Workspace-local named contexts with explicit per-command selection.
 - `setup`, `status`, `context`, `import`, `doctor`, `reset`, `gc`, `uninstall`,
-  and `version`.
+  `version`, and read-only update discovery.
 - Human-readable English output and stable JSON diagnostics.
 - Linux and macOS support on amd64 and arm64.
 - Automated tests against supported official CF CLI versions.

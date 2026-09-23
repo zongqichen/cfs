@@ -24,6 +24,12 @@ The project does not collect telemetry and must never log CF credentials or full
 command lines. CF plugins are executable code and should be installed only from
 trusted sources.
 
+`cfs update` and the cached interactive update notice contact only the public
+GitHub Releases API. Requests contain no Cloud Foundry target, credential,
+workspace, context, or command data. The cache contains only public release
+versions and timestamps. Set `CFS_NO_UPDATE_CHECK=1` to disable passive checks.
+Update discovery never downloads or executes a replacement binary.
+
 Managed `CF_HOME` directories contain the same authentication material as an
 ordinary official CF CLI home. Owner-only filesystem permissions protect them
 from other local users, but the files are not encrypted by `cfs`; backups and

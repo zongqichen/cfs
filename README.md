@@ -43,6 +43,30 @@ Another project or Git worktree receives a separate context automatically.
 Terminals and agents in the same worktree intentionally share its default
 context.
 
+## Updating
+
+Check for a newer published release without changing the installed binary:
+
+```sh
+cfs update
+```
+
+For scripts and coding agents, use `cfs update --json`. When an update is
+available, follow the printed command or update through the same package manager
+used for installation. A Go installation can be updated with:
+
+```sh
+go install github.com/zongqichen/cfs/cmd/cfs@latest
+cfs setup
+cfs doctor
+```
+
+Successful interactive `cfs` control commands check at most once every 24 hours
+and show one notice per new version. Checks never run from the transparent `cf`
+shim, JSON output, CI, or non-interactive processes. Set
+`CFS_NO_UPDATE_CHECK=1` to disable notices. Version checks contact only the public
+GitHub Releases API and send no Cloud Foundry or workspace data.
+
 ## Multiple targets in one project
 
 The normal `cf` command always uses the workspace's `default` context. Create a
@@ -141,6 +165,7 @@ cfs reset           Move this workspace's state to trash
 cfs gc              Find stale workspace state
 cfs uninstall       Remove the shim without deleting state
 cfs version         Print version information
+cfs update          Check for a newer published release
 cfs help [command]  Show help
 ```
 

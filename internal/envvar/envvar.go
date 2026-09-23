@@ -13,6 +13,7 @@ const (
 	ConfigFile    = "CFS_CONFIG_FILE"
 	Disable       = "CFS_DISABLE"
 	LockTimeout   = "CFS_LOCK_TIMEOUT"
+	NoUpdateCheck = "CFS_NO_UPDATE_CHECK"
 	ShimDir       = "CFS_SHIM_DIR"
 	StateHome     = "CFS_STATE_HOME"
 	WorkspaceRoot = "CFS_WORKSPACE_ROOT"
@@ -20,6 +21,7 @@ const (
 
 // Platform environment variables used to follow operating-system conventions.
 const (
+	CI           = "CI"
 	LocalAppData = "LOCALAPPDATA"
 	XDGStateHome = "XDG_STATE_HOME"
 )
