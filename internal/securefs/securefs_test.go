@@ -120,6 +120,9 @@ func TestValidateDirectoryRejectsBroadPermissions(t *testing.T) {
 
 func assertPermissions(t *testing.T, path string, want os.FileMode) {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		return
+	}
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)

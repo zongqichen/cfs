@@ -1,13 +1,10 @@
-//go:build !(aix || darwin || dragonfly || freebsd || linux || netbsd || openbsd || solaris)
+//go:build !(aix || darwin || dragonfly || freebsd || linux || netbsd || openbsd || solaris || windows)
 
 package lock
 
 import (
-	"errors"
 	"time"
 )
-
-var ErrBusy = errors.New("workspace is busy")
 
 type Lock struct{}
 

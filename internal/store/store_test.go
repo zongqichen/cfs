@@ -41,7 +41,7 @@ func TestEnsureCreatesPrivateContextAndMetadata(t *testing.T) {
 	}
 	if info, err := os.Stat(ctx.CFHome); err != nil {
 		t.Fatal(err)
-	} else if info.Mode().Perm() != 0o700 {
+	} else if runtime.GOOS != "windows" && info.Mode().Perm() != 0o700 {
 		t.Fatalf("CF home permissions = %o, want 700", info.Mode().Perm())
 	}
 }

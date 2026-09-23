@@ -1,4 +1,4 @@
-//go:build e2e && !windows
+//go:build e2e
 
 package e2e
 
@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -161,7 +162,7 @@ func TestRealCFWorkspaceLifecycle(t *testing.T) {
 	stateBeforeUninstall := directorySnapshot(t, testEnv.state)
 	uninstall := testEnv.run(t, testEnv.cfs, testEnv.repoRoot, nil, "uninstall")
 	requireSuccess(t, "cfs uninstall", uninstall)
-	if _, err := os.Lstat(filepath.Join(testEnv.shimDir, "cf")); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Lstat(filepath.Join(testEnv.shimDir, executableName("cf"))); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("shim still exists after uninstall: %v", err)
 	}
 	if got := directorySnapshot(t, testEnv.state); !equalStrings(got, stateBeforeUninstall) {
@@ -211,10 +212,11 @@ func newTestEnvironment(t *testing.T) testEnvironment {
 	shimDir := filepath.Join(root, "shims")
 	home := makeDirectory(t, filepath.Join(root, "home"))
 	state := filepath.Join(root, "state")
-	makeDirectory(t, filepath.Join(root, "tmp"))
+	temporary := makeDirectory(t, filepath.Join(root, "tmp"))
 
-	if err := os.Symlink(resolvedCF, filepath.Join(officialDir, "cf")); err != nil {
-		t.Fatalf("link official cf: %v", err)
+	officialCF := filepath.Join(officialDir, executableName("cf"))
+	if err := copyFile(resolvedCF, officialCF); err != nil {
+		t.Fatalf("copy official cf: %v", err)
 	}
 
 	install := exec.Command("go", "install", "./cmd/cfs")
@@ -226,24 +228,31 @@ func newTestEnvironment(t *testing.T) testEnvironment {
 
 	testPath := strings.Join([]string{shimDir, officialDir, binDir, os.Getenv("PATH")}, string(os.PathListSeparator))
 	env := replaceEnvironment(os.Environ(), map[string]string{
-		"HOME":            home,
-		"PATH":            testPath,
-		"TMPDIR":          filepath.Join(root, "tmp"),
-		"XDG_CONFIG_HOME": filepath.Join(root, "xdg-config"),
-		"XDG_STATE_HOME":  filepath.Join(root, "xdg-state"),
-		"CFS_CONFIG_FILE": filepath.Join(root, "config", "config.json"),
-		"CFS_STATE_HOME":  state,
-		"CFS_SHIM_DIR":    shimDir,
-		"CF_COLOR":        "false",
-		"LANG":            "C",
-		"LC_ALL":          "C",
+		"HOME":                home,
+		"USERPROFILE":         home,
+		"PATH":                testPath,
+		"TMPDIR":              temporary,
+		"TEMP":                temporary,
+		"TMP":                 temporary,
+		"APPDATA":             filepath.Join(root, "appdata", "roaming"),
+		"LOCALAPPDATA":        filepath.Join(root, "appdata", "local"),
+		"XDG_CONFIG_HOME":     filepath.Join(root, "xdg-config"),
+		"XDG_STATE_HOME":      filepath.Join(root, "xdg-state"),
+		"GIT_CONFIG_GLOBAL":   filepath.Join(root, "gitconfig"),
+		"GIT_CONFIG_NOSYSTEM": "1",
+		"CFS_CONFIG_FILE":     filepath.Join(root, "config", "config.json"),
+		"CFS_STATE_HOME":      state,
+		"CFS_SHIM_DIR":        shimDir,
+		"CF_COLOR":            "false",
+		"LANG":                "C",
+		"LC_ALL":              "C",
 	})
 	env = removeEnvironment(env, "CF_HOME", "CF_PLUGIN_HOME", "CF_TRACE", "CFS_ACTIVE_CONTEXT", "CFS_DISABLE", "CFS_LOCK_TIMEOUT", "CFS_WORKSPACE_ROOT")
 	t.Setenv("PATH", testPath)
 
 	return testEnvironment{
 		repoRoot: repoRoot, root: root, home: home, state: state, shimDir: shimDir,
-		realCF: resolvedCF, cfs: filepath.Join(binDir, "cfs"), env: env,
+		realCF: officialCF, cfs: filepath.Join(binDir, executableName("cfs")), env: env,
 	}
 }
 
@@ -378,7 +387,7 @@ func assertExternalCFHome(t *testing.T, env testEnvironment, mock *mockCF, outsi
 		"-a", mock.server.URL, "--skip-ssl-validation",
 		"-u", testUsername, "-p", testPassword, "-o", "finance", "-s", "production")
 	requireSuccess(t, "login with explicit CF_HOME", login)
-	apps := env.run(t, filepath.Join(env.shimDir, "cf"), outside, overrides, "apps", "--no-stats")
+	apps := env.run(t, filepath.Join(env.shimDir, executableName("cf")), outside, overrides, "apps", "--no-stats")
 	requireSuccess(t, "shim with explicit CF_HOME", apps)
 	assertContains(t, apps.stdout, "payments-app", "explicit CF_HOME was not preserved")
 }
@@ -426,6 +435,30 @@ func makeDirectory(t *testing.T, path string) string {
 	return path
 }
 
+func copyFile(source, destination string) error {
+	input, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer input.Close()
+	output, err := os.OpenFile(destination, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o700)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(output, input); err != nil {
+		_ = output.Close()
+		return err
+	}
+	return output.Close()
+}
+
+func executableName(base string) string {
+	if runtime.GOOS == "windows" {
+		return base + ".exe"
+	}
+	return base
+}
+
 func replaceEnvironment(base []string, replacements map[string]string) []string {
 	if len(replacements) == 0 {
 		return append([]string(nil), base...)
@@ -442,16 +475,23 @@ func replaceEnvironment(base []string, replacements map[string]string) []string 
 func removeEnvironment(base []string, names ...string) []string {
 	removed := make(map[string]struct{}, len(names))
 	for _, name := range names {
-		removed[name] = struct{}{}
+		removed[normalizeEnvironmentName(name)] = struct{}{}
 	}
 	result := make([]string, 0, len(base))
 	for _, entry := range base {
-		name := strings.SplitN(entry, "=", 2)[0]
+		name := normalizeEnvironmentName(strings.SplitN(entry, "=", 2)[0])
 		if _, found := removed[name]; !found {
 			result = append(result, entry)
 		}
 	}
 	return result
+}
+
+func normalizeEnvironmentName(name string) string {
+	if runtime.GOOS == "windows" {
+		return strings.ToUpper(name)
+	}
+	return name
 }
 
 func mapKeys(values map[string]string) []string {

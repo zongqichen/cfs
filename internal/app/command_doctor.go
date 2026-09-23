@@ -9,6 +9,7 @@ import (
 
 	"github.com/zongqichen/cfs/internal/config"
 	"github.com/zongqichen/cfs/internal/executable"
+	"github.com/zongqichen/cfs/internal/install"
 	"github.com/zongqichen/cfs/internal/workspace"
 )
 
@@ -65,18 +66,13 @@ func commandDoctor(options Options, args []string) int {
 		}
 
 		expectedShim := filepath.Join(cfg.ShimDir, executable.Name("cf"))
-		if info, statErr := os.Lstat(expectedShim); statErr != nil {
-			add("shim", checkFail, statErr.Error())
-		} else if info.Mode()&os.ModeSymlink == 0 {
-			add("shim", checkFail, "configured shim is not a symbolic link")
+		self, selfErr := executable.Current()
+		if selfErr != nil {
+			add("shim", checkFail, selfErr.Error())
+		} else if shimErr := install.ValidateShim(expectedShim, self); shimErr != nil {
+			add("shim", checkFail, shimErr.Error())
 		} else {
-			target, targetErr := filepath.EvalSymlinks(expectedShim)
-			self, selfErr := executable.Current()
-			if targetErr != nil || selfErr != nil || !executable.Same(target, self) {
-				add("shim", checkFail, "configured shim does not point to this cfs executable")
-			} else {
-				add("shim", checkPass, expectedShim)
-			}
+			add("shim", checkPass, expectedShim)
 		}
 
 		pathCF, lookErr := exec.LookPath("cf")

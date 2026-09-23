@@ -7,8 +7,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
+	"github.com/zongqichen/cfs/internal/pathutil"
 	"github.com/zongqichen/cfs/internal/securefs"
 )
 
@@ -65,7 +67,7 @@ func HasTarget(home string) (bool, error) {
 func Import(sourceHome, destinationHome string) error {
 	sourcePath := ConfigPath(sourceHome)
 	destinationPath := ConfigPath(destinationHome)
-	if filepath.Clean(sourcePath) == filepath.Clean(destinationPath) {
+	if pathutil.Equal(sourcePath, destinationPath) {
 		return errors.New("source and destination CF homes are the same")
 	}
 
@@ -89,7 +91,7 @@ func readConfig(path string) ([]byte, error) {
 		_ = file.Close()
 		return nil, fmt.Errorf("inspect CF configuration: %w", statErr)
 	}
-	if info.Mode().Perm()&0o077 != 0 {
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
 		_ = file.Close()
 		return nil, fmt.Errorf("CF configuration permissions are too broad: %04o", info.Mode().Perm())
 	}

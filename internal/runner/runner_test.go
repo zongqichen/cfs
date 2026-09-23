@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -31,5 +32,22 @@ func TestWithoutEnvRemovesOnlyNamedValues(t *testing.T) {
 		if !strings.Contains(joined, expected) {
 			t.Fatalf("WithoutEnv() = %v, missing %q", got, expected)
 		}
+	}
+}
+
+func TestEnvironmentNamesAreCaseInsensitiveOnWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("environment names are case-sensitive on this platform")
+	}
+
+	replaced := ReplaceEnv([]string{"cf_home=old", "PATH=keep"}, map[string]string{"CF_HOME": "new"})
+	joined := strings.Join(replaced, "\n")
+	if strings.Contains(joined, "cf_home=old") || !strings.Contains(joined, "CF_HOME=new") {
+		t.Fatalf("ReplaceEnv() = %v", replaced)
+	}
+
+	removed := WithoutEnv([]string{"cf_trace=secret", "PATH=keep"}, "CF_TRACE")
+	if strings.Contains(strings.Join(removed, "\n"), "cf_trace") {
+		t.Fatalf("WithoutEnv() = %v", removed)
 	}
 }

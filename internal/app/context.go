@@ -10,6 +10,7 @@ import (
 	"github.com/zongqichen/cfs/internal/config"
 	"github.com/zongqichen/cfs/internal/envvar"
 	"github.com/zongqichen/cfs/internal/lock"
+	"github.com/zongqichen/cfs/internal/pathutil"
 	"github.com/zongqichen/cfs/internal/runner"
 	"github.com/zongqichen/cfs/internal/store"
 	"github.com/zongqichen/cfs/internal/workspace"
@@ -110,7 +111,7 @@ func activeManagedEnvironment(cfg config.Config) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("resolve active %s: %w", envvar.CFHome, err)
 	}
-	if filepath.Clean(actualHome) != filepath.Clean(ctx.CFHome) {
+	if !pathutil.Equal(actualHome, ctx.CFHome) {
 		return false, fmt.Errorf("%s does not match %s", envvar.ActiveContext, envvar.CFHome)
 	}
 	_, err = stateStore.ValidateContext(ctx)

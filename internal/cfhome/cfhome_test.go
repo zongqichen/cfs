@@ -138,6 +138,9 @@ func writeConfig(t *testing.T, home string, content []byte, mode os.FileMode) {
 
 func assertMode(t *testing.T, path string, want os.FileMode) {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		return
+	}
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
