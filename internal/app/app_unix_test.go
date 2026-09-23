@@ -18,7 +18,7 @@ import (
 
 func TestShimUsesWorkspaceSpecificCFHome(t *testing.T) {
 	fakeCF := writeFakeCF(t)
-	stateRoot := t.TempDir()
+	stateRoot := canonicalTestPath(t, t.TempDir())
 	configureTestEnvironment(t, fakeCF, stateRoot)
 
 	firstRoot := markerWorkspace(t)
@@ -114,7 +114,7 @@ func TestShimPreservesExplicitPluginHome(t *testing.T) {
 
 func TestExplicitWorkspaceRootOverridesInheritedCFHome(t *testing.T) {
 	fakeCF := writeFakeCF(t)
-	stateRoot := t.TempDir()
+	stateRoot := canonicalTestPath(t, t.TempDir())
 	configureTestEnvironment(t, fakeCF, stateRoot)
 	workspaceRoot := t.TempDir()
 	externalHome := filepath.Join(t.TempDir(), "external")
@@ -144,7 +144,7 @@ func TestShimPropagatesOfficialExitCode(t *testing.T) {
 
 func TestShimRejectsConcurrentCommandInSameWorkspace(t *testing.T) {
 	fakeCF := writeFakeCF(t)
-	stateRoot := t.TempDir()
+	stateRoot := canonicalTestPath(t, t.TempDir())
 	configureTestEnvironment(t, fakeCF, stateRoot)
 	root := markerWorkspace(t)
 
@@ -259,7 +259,7 @@ func TestShimRejectsActiveContextWithMismatchedHome(t *testing.T) {
 
 func TestStatusRedactsOperationalMetadataAndDisablesCFTrace(t *testing.T) {
 	fakeCF := writeFakeCF(t)
-	stateRoot := t.TempDir()
+	stateRoot := canonicalTestPath(t, t.TempDir())
 	configureTestEnvironment(t, fakeCF, stateRoot)
 	root := markerWorkspace(t)
 	t.Setenv("CFS_WORKSPACE_ROOT", root)
@@ -426,4 +426,13 @@ func outputValue(output, key string) string {
 		}
 	}
 	return ""
+}
+
+func canonicalTestPath(t *testing.T, path string) string {
+	t.Helper()
+	canonical, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return canonical
 }
