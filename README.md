@@ -4,43 +4,34 @@
 [![Release](https://img.shields.io/github/v/release/zongqichen/cfs?include_prereleases&sort=semver)](https://github.com/zongqichen/cfs/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-Project-scoped Cloud Foundry CLI contexts for parallel terminals, Git worktrees,
-and coding agents.
+Run independent Cloud Foundry CLI targets in parallel.
 
-The official `cf` CLI keeps one active target in `$HOME/.cf`. Changing it in one
-terminal changes it everywhere. `cfs` gives each workspace an isolated
-`CF_HOME` while preserving the normal `cf` command.
+The official `cf` CLI keeps one active target in `$HOME/.cf`, so switching it in
+one terminal changes it for every project. `cfs` isolates that state per project
+or Git worktree. Terminals and coding agents can use different foundations,
+orgs, and spaces while keeping the normal `cf` command.
 
-```text
-~/work/orders   -> commerce/development
-~/work/payments -> finance/production
-```
+![Two projects keeping independent Cloud Foundry targets](docs/assets/cfs-demo.gif)
 
-## Install
+*The demo runs the real `cfs` shim with a local, credential-free CF fixture.
+[View the source](docs/demo/demo.tape).*
 
-Requires Linux or macOS on x86-64 or arm64 and the
-[official CF CLI](https://github.com/cloudfoundry/cli). Building from source also
-requires Go 1.26.8+.
+## Quick start
+
+Install the [official CF CLI](https://github.com/cloudfoundry/cli), then download
+`cfs` from [GitHub Releases](https://github.com/zongqichen/cfs/releases) or build
+it with Go 1.26.8+:
 
 ```sh
 go install github.com/zongqichen/cfs/cmd/cfs@latest
 cfs setup
 ```
 
-Add the directory printed by `cfs setup` to the beginning of `PATH`, start a new
-shell, then verify:
+Prebuilt binaries support Linux and macOS on x86-64 and arm64. Put the shim
+directory printed by `cfs setup` first on `PATH`, open a new shell, and run
+`cfs doctor`.
 
-```sh
-cfs doctor
-command -v cf
-```
-
-Prebuilt binaries are available from
-[GitHub Releases](https://github.com/zongqichen/cfs/releases).
-
-## Use
-
-Log in normally from a project:
+Now log in normally from each project:
 
 ```sh
 cd ~/work/orders
@@ -48,11 +39,12 @@ cf login --sso -a https://api.example.com -o commerce -s development
 cf apps
 ```
 
-Every terminal and agent in that Git worktree now shares the same context. A
-different project or worktree gets a different context automatically.
-This works unchanged in Codex, Claude Code, IDE agents, and shell scripts.
+Another project or Git worktree receives a separate context automatically.
+Terminals and agents in the same worktree intentionally share its context.
 
-Already logged in with the global CF CLI? Import that context once:
+## Existing login
+
+To copy your current global CF target into a workspace once:
 
 ```sh
 cd ~/work/orders
@@ -60,19 +52,40 @@ CFS_DISABLE=1 cf target
 cfs import
 ```
 
-The import is a snapshot, not a link. It copies the global CF configuration,
-including its credentials, into private workspace state. Use `cfs import --yes`
-for non-interactive automation and `--force` only to replace an active workspace
-target. An empty workspace detects an available global context and suggests the
-command, but never imports it silently.
+The import is a private snapshot, not a link. It may contain active credentials.
+Use `cfs import --yes` in non-interactive automation and `--force` only when you
+intend to replace an existing workspace target. `cfs` never imports credentials
+silently.
 
-For a non-Git directory, add a `.cfs.toml` file at the workspace root:
+## Coding agents
+
+No agent integration is required. Start Codex, Claude Code, or an IDE agent in
+its project or worktree and let it run ordinary `cf` commands. For diagnostics
+safe to attach to agent logs, use:
+
+```sh
+cfs status --json --redact
+```
+
+## How it works
+
+```text
+cf command -> cfs shim -> workspace-specific CF_HOME -> official cf CLI
+```
+
+`cfs setup` places a transparent `cf` shim on `PATH`. For each invocation, the
+shim resolves the current workspace, selects its private state, and delegates to
+the official CLI. Authentication, token refresh, plugins, API calls, signals,
+and exit codes remain the official CLI's responsibility.
+
+Git worktrees are detected automatically. For a directory that is not a Git
+worktree, create this marker at its root:
 
 ```toml
 version = 1
 ```
 
-Or select a root for one command:
+Alternatively, select a workspace for one command:
 
 ```sh
 CFS_WORKSPACE_ROOT=/workspace cf apps
@@ -92,13 +105,9 @@ cfs version         Print version information
 cfs help [command]  Show help
 ```
 
-Use `cfs status --json --redact` for agent logs. Use `CFS_DISABLE=1 cf ...` to
-bypass isolation for one command.
-
-`cfs` delegates authentication, token refresh, plugins, and API calls to the
-official CF CLI. It never silently imports credentials and collects no
+Use `CFS_DISABLE=1 cf ...` to bypass isolation for one command. `cfs` collects no
 telemetry. Workspace state and recoverable trash can contain active tokens; see
-[SECURITY.md](SECURITY.md).
+[Security](SECURITY.md).
 
 ## Development
 
@@ -110,9 +119,8 @@ make smoke
 CFS_REAL_CF=/path/to/official/cf make e2e
 ```
 
-The E2E suite uses the real CLI against an isolated local mock; see
-[testing](docs/testing.md). See also the [changelog](CHANGELOG.md),
-[design](docs/design.md), and [release guide](docs/releasing.md). Licensed under
-[Apache-2.0](LICENSE), like the official CF CLI. Contributions are welcome; see
-[CONTRIBUTING.md](CONTRIBUTING.md) and the
-[Code of Conduct](CODE_OF_CONDUCT.md).
+See [testing](docs/testing.md), [design](docs/design.md), the
+[changelog](CHANGELOG.md), and the [release guide](docs/releasing.md).
+Contributions are welcome; read
+[CONTRIBUTING.md](CONTRIBUTING.md). Licensed under [Apache-2.0](LICENSE), like
+the official CF CLI.

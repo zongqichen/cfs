@@ -22,6 +22,8 @@ contract may still change while cfs is pre-1.0.
 
 ### Changed
 
+- Reworked the user documentation around a concise quick start and a
+  reproducible multi-workspace terminal demo.
 - Windows packaging is deferred; supported release targets remain Linux and
   macOS on amd64 and arm64.
 - Source builds now require Go 1.26.8 or newer; release builds use Go 1.27.1.
