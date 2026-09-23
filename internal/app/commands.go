@@ -44,6 +44,13 @@ func allCommands() []commandSpec {
 			run:      commandStatus,
 		},
 		{
+			name:     "import",
+			summary:  "Import the global CF context into this workspace",
+			usage:    "cfs import [--yes] [--force]",
+			examples: "  cfs import\n  cfs import --yes",
+			run:      commandImport,
+		},
+		{
 			name:     "doctor",
 			summary:  "Diagnose configuration and installation problems",
 			usage:    "cfs doctor [--json]",

@@ -24,6 +24,13 @@ ordinary official CF CLI home. Owner-only filesystem permissions protect them
 from other local users, but the files are not encrypted by `cfs`; backups and
 host administrators may still access them.
 
+`cfs import` makes an explicit, one-time copy of `$HOME/.cf/config.json`, which
+can contain access tokens, refresh tokens, and client secrets. It requires an
+interactive confirmation or `--yes`, rejects symbolic links and source files
+readable by other users, writes the destination atomically with mode `0600`, and
+never prints the file contents. `--force` can replace an active workspace target
+but does not revoke the credentials it replaces. Import never runs implicitly.
+
 `cfs reset` and `cfs gc --apply` retain removed contexts in recoverable trash
 indefinitely. Moving a context does not revoke its tokens. Log out or revoke the
 credentials first when possible, and explicitly remove the relevant trash entry

@@ -35,6 +35,15 @@ func resolveManagedContext(cfg config.Config) (managedContext, error) {
 	return resolveManagedContextFromWorkspace(cfg, ws)
 }
 
+func reportWorkspaceError(options Options, err error) {
+	if errors.Is(err, workspace.ErrNotFound) {
+		fprintf(options.Stderr, "cfs: no workspace could be resolved; refusing to use the global CF home\n")
+		fprintf(options.Stderr, "Hint: run this command inside a Git worktree or set %s.\n", envvar.WorkspaceRoot)
+		return
+	}
+	fprintf(options.Stderr, "cfs: %v\n", err)
+}
+
 func resolveManagedContextFromWorkspace(cfg config.Config, ws workspace.Workspace) (managedContext, error) {
 	stateRoot, err := config.StateRoot(cfg)
 	if err != nil {

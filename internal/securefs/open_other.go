@@ -7,6 +7,10 @@ import (
 	"os"
 )
 
+func OpenRegularFile(path string) (*os.File, error) {
+	return openFileNoFollow(path, os.O_RDONLY, 0)
+}
+
 func OpenPrivateFile(path string, flags int) (*os.File, error) {
 	file, err := openFileNoFollow(path, flags, FileMode)
 	if err != nil {

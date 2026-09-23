@@ -36,10 +36,9 @@ product.
 
 - A Cloud Foundry CLI plugin.
 - A replacement Cloud Foundry client.
-- An OAuth or credential manager.
+- An OAuth implementation, credential vault, or synchronization service.
 - A named session switcher.
 - A Codex, Claude Code, or IDE plugin.
-- A synchronization service for credentials.
 - A background daemon.
 
 The official Cloud Foundry CLI remains responsible for authentication, token
@@ -106,6 +105,16 @@ On the first `cf` invocation in a workspace, `cfs` creates an empty private CF
 home. The official CLI then behaves as it would with any new `CF_HOME`. Future
 shells and coding tools operating in that worktree resolve the same home.
 
+An existing global context can be copied explicitly:
+
+```console
+$ cfs import
+```
+
+Import is a one-time snapshot, not a shared or synchronized context. It requires
+confirmation because the opaque CF configuration contains credentials. `cfs`
+never imports credentials as a side effect of a normal `cf` command.
+
 ### 4.3 Multiple projects
 
 ```text
@@ -157,6 +166,7 @@ The initial control interface is deliberately small:
 | --- | --- |
 | `cfs setup` | Locate the official CLI and install the transparent shim. |
 | `cfs status` | Show workspace resolution and the current CF target. |
+| `cfs import` | Copy the global CF context into the current workspace. |
 | `cfs doctor` | Validate paths, permissions, CLI compatibility, and state. |
 | `cfs reset` | Move the current workspace state to recoverable trash after confirmation. |
 | `cfs gc` | Report orphaned workspace state; deletion requires `--apply`. |
@@ -167,7 +177,6 @@ The initial control interface is deliberately small:
 Global conventions:
 
 - `--json` produces stable JSON for `status`, `doctor`, and `gc`.
-- `--quiet` suppresses non-error messages.
 - Errors use the form `cfs: <message>`.
 - Interactive prompts are never used when standard input is not a terminal.
 - Destructive commands require an explicit flag in non-interactive mode.
@@ -331,8 +340,10 @@ Security requirements:
 - Context IDs are validated fixed-length hexadecimal strings.
 - Symbolic-link traversal outside the state root is rejected.
 
-The official CF CLI owns the contents of `home/.cf`. `cfs` treats that
-directory as opaque and does not modify or merge `config.json`.
+The official CF CLI owns the contents of `home/.cf`. Except for an explicit
+`cfs import`, `cfs` treats that directory as opaque and does not modify or merge
+`config.json`. Import validates and atomically copies the global file without
+parsing or printing its credentials.
 
 ### 10.1 Retention and deletion
 
@@ -427,6 +438,7 @@ Failures must be deterministic and actionable:
 | Context permission error | Fail before starting the official CLI. |
 | Workspace busy | Return a temporary failure without exposing arguments. |
 | Corrupt `cfs` metadata | Preserve CF state and request `cfs doctor`. |
+| Existing workspace target | Refuse import unless `--force` is explicit. |
 | Official CLI failure | Return its exit status unchanged. |
 | Interrupted process | Forward the signal and release the OS lock. |
 
@@ -439,13 +451,13 @@ after detecting corruption.
 cmd/
   cfs/                 executable entry point and mode dispatch
 internal/
-  cli/                 control commands and stable output
+  app/                 control commands and shim dispatch
+  cfhome/              opaque CF configuration import
   config/              global configuration
   workspace/           root discovery and identity
   store/               paths, metadata, and permissions
   lock/                platform-specific process locks
   runner/              child process and signal forwarding
-  cfadapter/           CF_HOME and CF_PLUGIN_HOME environment policy
   install/             shim and shell PATH integration
 ```
 
@@ -462,7 +474,8 @@ The first usable release includes:
 - Isolated persistent `CF_HOME` directories.
 - Shared `CF_PLUGIN_HOME`.
 - Per-workspace exclusive locking.
-- `setup`, `status`, `doctor`, `reset`, `gc`, `uninstall`, and `version`.
+- `setup`, `status`, `import`, `doctor`, `reset`, `gc`, `uninstall`, and
+  `version`.
 - Human-readable English output and stable JSON diagnostics.
 - Linux and macOS support.
 - Automated tests against supported official CF CLI versions.
@@ -495,6 +508,8 @@ The MVP is complete only when all of the following are demonstrated:
 9. No token or password appears in `cfs` metadata, logs, or diagnostic output.
 10. Uninstalling restores direct access to the official CF CLI without deleting
     user state.
+11. Import requires explicit confirmation, never prints credentials, and cannot
+    replace an active workspace target without `--force`.
 
 ## 19. Architectural decision
 
