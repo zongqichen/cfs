@@ -15,3 +15,7 @@ Treat the cfs CLI as the source of truth. Do not inspect or edit CF configuratio
 Never select a context through `cf target`, a manual `CF_HOME`, `CFS_DISABLE`, or a direct official-CF binary path. Keep shared diagnostics both JSON-formatted and redacted.
 
 Selecting a context grants no authority to log in, deploy, import, create or remove contexts, change targets, or perform any other mutation. Run such commands only when the user has authorized that specific operation. If inspection shows the selected context is unavailable or not logged in, report that state and ask before changing it.
+
+When asked whether cfs itself has an update, run `cfs update --json`. This check
+is read-only. Report its `status` and `latest_version`; do not execute any
+returned update command unless the user separately authorizes installation.

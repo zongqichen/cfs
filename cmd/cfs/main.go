@@ -5,6 +5,7 @@ import (
 	"runtime/debug"
 
 	"github.com/zongqichen/cfs/internal/app"
+	"github.com/zongqichen/cfs/internal/updatecheck"
 )
 
 var version = "dev"
@@ -21,6 +22,7 @@ func main() {
 		Version:   resolvedVersion,
 		Commit:    resolvedCommit,
 		BuildDate: resolvedBuildDate,
+		Updates:   updatecheck.New(updatecheck.Options{}),
 	}))
 }
 

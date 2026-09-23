@@ -7,6 +7,11 @@ contract may still change while cfs is pre-1.0.
 
 ## [Unreleased]
 
+### Added
+
+- Added `cfs update` with agent-safe JSON output and cached, opt-out update
+  notices that never run from the transparent `cf` shim.
+
 ## [0.2.0] - 2026-09-23
 
 ### Added

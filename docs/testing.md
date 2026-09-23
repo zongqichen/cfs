@@ -11,6 +11,10 @@ routes the command through the exact named context. It uses the caller's Codex
 authentication and provider configuration, runs with a temporary home and
 workspace, and deletes the fixture repository afterward.
 
+Update discovery tests use local HTTP servers and temporary caches. Unit and CI
+tests never query GitHub Releases; a live `cfs update` check is a manual release
+validation step.
+
 Run the full protocol test with an official CF CLI binary:
 
 ```sh

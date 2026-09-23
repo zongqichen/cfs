@@ -93,6 +93,13 @@ func allCommands() []commandSpec {
 			run:      commandVersion,
 		},
 		{
+			name:     "update",
+			summary:  "Check for a newer cfs release",
+			usage:    "cfs update [--json]",
+			examples: "  cfs update\n  cfs update --json",
+			run:      commandUpdate,
+		},
+		{
 			name:     "help",
 			summary:  "Show help for cfs or a command",
 			usage:    "cfs help [command]",
@@ -122,7 +129,11 @@ func runControl(options Options, args []string) int {
 	if isHelpRequest(commandArgs) {
 		options.Stderr = options.Stdout
 	}
-	return command.run(options, commandArgs)
+	exitCode := command.run(options, commandArgs)
+	if exitCode == exitOK {
+		maybeNotifyUpdate(options, command, commandArgs)
+	}
+	return exitCode
 }
 
 func commandHelp(options Options, args []string) int {
@@ -225,7 +236,7 @@ func printHelp(output io.Writer) {
 	for _, command := range allCommands() {
 		fprintf(output, "  %-11s %s\n", command.name, command.summary)
 	}
-	fprintf(output, "\nEnvironment:\n  %s  Override automatic workspace discovery\n  %s      Override the state directory\n  %s    Maximum wait for a context lock (default: %s)\n  %s=1       Bypass workspace isolation for one invocation\n\nNormal Cloud Foundry commands remain unchanged:\n  cf login --sso\n  cf target -o my-org -s my-space\n  cf apps\n", envvar.WorkspaceRoot, envvar.StateHome, envvar.LockTimeout, defaultLockTimeout, envvar.Disable)
+	fprintf(output, "\nEnvironment:\n  %s  Override automatic workspace discovery\n  %s      Override the state directory\n  %s    Maximum wait for a context lock (default: %s)\n  %s=1       Bypass workspace isolation for one invocation\n  %s=1 Disable interactive update notices\n\nNormal Cloud Foundry commands remain unchanged:\n  cf login --sso\n  cf target -o my-org -s my-space\n  cf apps\n", envvar.WorkspaceRoot, envvar.StateHome, envvar.LockTimeout, defaultLockTimeout, envvar.Disable, envvar.NoUpdateCheck)
 }
 
 func shortID(id string) string {
