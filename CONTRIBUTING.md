@@ -24,9 +24,17 @@ Run `make smoke` when changing shim discovery, environment handling, process
 execution, or context isolation. The smoke test must use a non-production CF CLI
 configuration.
 
+Run `CFS_REAL_CF=/path/to/official/cf make e2e` when changing login,
+targeting, import, workspace resolution, or locking. The suite uses only its
+local mock API and temporary state; `CFS_REAL_CF` must not point to the cfs
+shim.
+
 ## Pull requests
 
 - Add tests for behavior changes and update user-facing documentation.
+- Record notable user-visible, compatibility, and security changes under
+  `Unreleased` in `CHANGELOG.md`. Pure test, refactoring, and maintenance changes
+  do not need an entry unless they affect users.
 - Use a short imperative title with one of these prefixes when practical:
   `feat:`, `fix:`, `docs:`, `test:`, `ci:`, `chore:`, `refactor:`, or
   `security:`.
