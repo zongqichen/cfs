@@ -24,6 +24,9 @@ Its independent user journeys verify:
   identity-bound authenticated API requests;
 - five concurrent workspace logins and app queries, fresh-process reuse, and
   same-workspace locking;
+- multiple named contexts in one workspace, including concurrent login and app
+  queries, independent and shared locks, directed import, lifecycle commands,
+  and fail-closed name validation;
 - Git worktrees, `.cfs.toml`, `CFS_WORKSPACE_ROOT`, and explicit `CF_HOME`;
 - fail-closed behavior, explicit bypass, redacted diagnostics, metadata secrecy,
   explicit plugin homes, exit-code forwarding, and import overwrite protection;

@@ -3,6 +3,7 @@
 package app
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,6 +19,9 @@ import (
 func TestImportCopiesGlobalContextIntoWorkspace(t *testing.T) {
 	fakeCF := writeTargetAwareFakeCF(t)
 	stateRoot := canonicalTestPath(t, t.TempDir())
+	if err := os.Chmod(stateRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	configureTestEnvironment(t, fakeCF, stateRoot)
 	globalHome := t.TempDir()
 	t.Setenv("HOME", globalHome)
@@ -64,6 +68,57 @@ func TestImportCopiesGlobalContextIntoWorkspace(t *testing.T) {
 	target := runFromDirectory(t, root, []string{"cf", "target"})
 	if target.code != exitOK {
 		t.Fatalf("imported target is unavailable: %#v", target)
+	}
+}
+
+func TestImportCopiesGlobalContextIntoExistingNamedContext(t *testing.T) {
+	fakeCF := writeTargetAwareFakeCF(t)
+	stateRoot := canonicalTestPath(t, t.TempDir())
+	if err := os.Chmod(stateRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	configureTestEnvironment(t, fakeCF, stateRoot)
+	globalHome := t.TempDir()
+	t.Setenv("HOME", globalHome)
+	want := []byte(`{"Target":"https://api.example.com","RefreshToken":"secret"}`)
+	writeCFConfig(t, globalHome, want)
+	root := markerWorkspace(t)
+
+	missing := runFromDirectory(t, root, []string{"cfs", "import", "--context", "prod", "--yes"})
+	if missing.code != exitUnavailable || !strings.Contains(missing.stderr, `context "prod" does not exist`) {
+		t.Fatalf("import into missing context = %#v", missing)
+	}
+	createNamedContext(t, root, "prod")
+	result := runFromDirectory(t, root, []string{"cfs", "import", "--context", "prod", "--yes"})
+	if result.code != exitOK {
+		t.Fatalf("named import = %#v", result)
+	}
+	if strings.Contains(result.stdout+result.stderr, "secret") {
+		t.Fatalf("import output exposed credentials: %#v", result)
+	}
+
+	ws, err := workspace.Resolve(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateStore := store.New(stateRoot)
+	named, err := stateStore.ContextForName(ws, "prod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(cfhome.ConfigPath(named.CFHome))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Fatalf("named imported configuration = %q, want %q", got, want)
+	}
+	defaultContext, err := stateStore.ContextFor(ws)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(cfhome.ConfigPath(defaultContext.CFHome)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("named import changed default context: %v", err)
 	}
 }
 

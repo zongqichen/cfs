@@ -7,9 +7,9 @@
 Run independent Cloud Foundry CLI targets in parallel.
 
 The official `cf` CLI keeps one active target in `$HOME/.cf`, so switching it in
-one terminal changes it for every project. `cfs` isolates that state per project
-or Git worktree. Terminals and coding agents can use different foundations,
-orgs, and spaces while keeping the normal `cf` command.
+one terminal changes it everywhere. `cfs` isolates that state per project or
+Git worktree, with optional named contexts when one project needs several
+targets.
 
 ![Two projects keeping independent Cloud Foundry targets](docs/assets/cfs-demo.gif)
 
@@ -40,7 +40,24 @@ cf apps
 ```
 
 Another project or Git worktree receives a separate context automatically.
-Terminals and agents in the same worktree intentionally share its context.
+Terminals and agents in the same worktree intentionally share its default
+context.
+
+## Multiple targets in one project
+
+The normal `cf` command always uses the workspace's `default` context. Create a
+named context only when the same workspace needs another independent target:
+
+```sh
+cfs context create prod
+cfs -c prod login --sso -a https://api.example.com -o commerce -s production
+cfs -c prod apps
+```
+
+Each name has its own `CF_HOME` and lock. Names are workspace-local and selected
+per command; there is no mutable current context to race over. Inspect them
+with `cfs context list` or `cfs context status prod --json --redact`. Unknown
+names fail without creating state.
 
 ## Existing login
 
@@ -52,6 +69,13 @@ CFS_DISABLE=1 cf target
 cfs import
 ```
 
+To import into a named context instead:
+
+```sh
+cfs context create prod
+cfs import --context prod
+```
+
 The import is a private snapshot, not a link. It may contain active credentials.
 Use `cfs import --yes` in non-interactive automation and `--force` only when you
 intend to replace an existing workspace target. `cfs` never imports credentials
@@ -60,23 +84,27 @@ silently.
 ## Coding agents
 
 No agent integration is required. Start Codex, Claude Code, or an IDE agent in
-its project or worktree and let it run ordinary `cf` commands. For diagnostics
-safe to attach to agent logs, use:
+its project or worktree and let it run ordinary `cf` commands. Give an agent an
+exact named command such as `cfs -c prod apps` when it needs a non-default
+target. For diagnostics safe to attach to agent logs, use:
 
 ```sh
 cfs status --json --redact
+cfs context status prod --json --redact
 ```
 
 ## How it works
 
 ```text
-cf command -> cfs shim -> workspace-specific CF_HOME -> official cf CLI
+cf command      -> cfs shim -> workspace default CF_HOME -> official cf CLI
+cfs -c NAME ... -> cfs      -> workspace named CF_HOME   -> official cf CLI
 ```
 
 `cfs setup` places a transparent `cf` shim on `PATH`. For each invocation, the
 shim resolves the current workspace, selects its private state, and delegates to
-the official CLI. Authentication, token refresh, plugins, API calls, signals,
-and exit codes remain the official CLI's responsibility.
+the official CLI. Named commands take the same path with an explicit context.
+Authentication, token refresh, plugins, API calls, signals, and exit codes
+remain the official CLI's responsibility.
 
 Git worktrees are detected automatically. For a directory that is not a Git
 worktree, create this marker at its root:
@@ -96,7 +124,8 @@ CFS_WORKSPACE_ROOT=/workspace cf apps
 ```text
 cfs setup           Install the transparent cf shim
 cfs status          Show the current workspace and target
-cfs import          Import the global context into this workspace
+cfs context         Create, list, inspect, or remove named contexts
+cfs import          Import the global context into default or a named context
 cfs doctor          Diagnose the installation and workspace
 cfs reset           Move this workspace's state to trash
 cfs gc              Find stale workspace state
@@ -104,6 +133,8 @@ cfs uninstall       Remove the shim without deleting state
 cfs version         Print version information
 cfs help [command]  Show help
 ```
+
+Run `cfs help context` for the named-context commands.
 
 Use `CFS_DISABLE=1 cf ...` to bypass isolation for one command. `cfs` collects no
 telemetry. Workspace state and recoverable trash can contain active tokens; see

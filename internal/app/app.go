@@ -44,6 +44,14 @@ func Run(options Options) int {
 	if strings.EqualFold(name, "cf") || strings.EqualFold(name, executable.Name("cf")) {
 		return runShim(options, options.Args[1:])
 	}
+	contextName, cfArgs, named, err := parseNamedInvocation(options.Args[1:])
+	if err != nil {
+		fprintf(options.Stderr, "cfs: %v\n", err)
+		return exitUsage
+	}
+	if named {
+		return runNamed(options, contextName, cfArgs)
+	}
 	return runControl(options, options.Args[1:])
 }
 

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zongqichen/cfs/internal/contextname"
 	"github.com/zongqichen/cfs/internal/securefs"
 	"github.com/zongqichen/cfs/internal/workspace"
 )
@@ -27,6 +29,7 @@ const (
 	lockFileSuffix       = ".lock"
 	trashTimestampLayout = "20060102T150405.000000000Z"
 	metadataReadLimit    = 64 * 1024
+	namedContextPrefix   = "cfs:named-context:v1\x00"
 )
 
 type Store struct {
@@ -36,6 +39,7 @@ type Store struct {
 
 type Context struct {
 	ID           string
+	Name         string
 	Dir          string
 	CFHome       string
 	LockPath     string
@@ -45,6 +49,8 @@ type Context struct {
 type Metadata struct {
 	Version     int       `json:"version"`
 	ContextID   string    `json:"context_id"`
+	ContextName string    `json:"context_name,omitempty"`
+	WorkspaceID string    `json:"workspace_id,omitempty"`
 	Workspace   string    `json:"workspace"`
 	Source      string    `json:"source"`
 	Fingerprint string    `json:"fingerprint"`
@@ -63,7 +69,20 @@ func New(root string) Store {
 }
 
 func (s Store) ContextFor(ws workspace.Workspace) (Context, error) {
-	return s.Context(ws.ID)
+	return s.ContextForName(ws, contextname.Default)
+}
+
+func (s Store) ContextForName(ws workspace.Workspace, name string) (Context, error) {
+	if err := contextname.Validate(name); err != nil {
+		return Context{}, err
+	}
+	id := expectedContextID(ws.ID, name)
+	ctx, err := s.Context(id)
+	if err != nil {
+		return Context{}, err
+	}
+	ctx.Name = name
+	return ctx, nil
 }
 
 func (s Store) Context(id string) (Context, error) {
@@ -81,7 +100,22 @@ func (s Store) Context(id string) (Context, error) {
 }
 
 func (s Store) Prepare(ctx Context) error {
-	for _, dir := range []string{s.Root, filepath.Join(s.Root, contextsDirectory), filepath.Join(s.Root, locksDirectory), ctx.Dir, ctx.CFHome, s.SharedPluginHome()} {
+	if !s.hasExpectedPaths(ctx) {
+		return errors.New("context paths do not match the state root")
+	}
+	if err := s.PrepareRoot(); err != nil {
+		return err
+	}
+	for _, dir := range []string{ctx.Dir, ctx.CFHome} {
+		if err := securefs.EnsureDirectory(dir); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s Store) PrepareRoot() error {
+	for _, dir := range []string{s.Root, filepath.Join(s.Root, contextsDirectory), filepath.Join(s.Root, locksDirectory), s.SharedPluginHome()} {
 		if err := securefs.EnsureDirectory(dir); err != nil {
 			return err
 		}
@@ -90,6 +124,16 @@ func (s Store) Prepare(ctx Context) error {
 }
 
 func (s Store) Ensure(ctx Context, ws workspace.Workspace) error {
+	if err := contextname.Validate(ctx.Name); err != nil {
+		return err
+	}
+	expected, err := s.ContextForName(ws, ctx.Name)
+	if err != nil {
+		return err
+	}
+	if !sameContextPaths(ctx, expected) {
+		return errors.New("context does not match its workspace and name")
+	}
 	if err := s.Prepare(ctx); err != nil {
 		return err
 	}
@@ -99,7 +143,9 @@ func (s Store) Ensure(ctx Context, ws workspace.Workspace) error {
 		now := s.now().UTC()
 		metadata = Metadata{
 			Version:     metadataVersion,
-			ContextID:   ws.ID,
+			ContextID:   ctx.ID,
+			ContextName: ctx.Name,
+			WorkspaceID: ws.ID,
 			Workspace:   ws.Root,
 			Source:      ws.Source,
 			Fingerprint: ws.Fingerprint,
@@ -109,7 +155,7 @@ func (s Store) Ensure(ctx Context, ws workspace.Workspace) error {
 	} else if err != nil {
 		return err
 	} else {
-		if metadata.ContextID != ws.ID || !workspace.SameRoot(metadata.Workspace, ws.Root) || metadata.Fingerprint != ws.Fingerprint {
+		if !metadataMatches(metadata, ctx, ws) {
 			return errors.New("workspace metadata does not match the resolved context")
 		}
 		metadata.LastUsedAt = s.now().UTC()
@@ -141,8 +187,23 @@ func (s Store) ReadMetadata(ctx Context) (Metadata, error) {
 	if metadata.Version != metadataVersion {
 		return Metadata{}, fmt.Errorf("unsupported metadata version %d", metadata.Version)
 	}
+	if metadata.ContextName == "" {
+		metadata.ContextName = contextname.Default
+	}
+	if err := contextname.Validate(metadata.ContextName); err != nil {
+		return Metadata{}, err
+	}
+	if metadata.WorkspaceID == "" && metadata.ContextName == contextname.Default {
+		metadata.WorkspaceID = metadata.ContextID
+	}
+	if !validID(metadata.WorkspaceID) {
+		return Metadata{}, errors.New("invalid workspace ID in context metadata")
+	}
 	if metadata.ContextID != ctx.ID {
 		return Metadata{}, errors.New("context metadata does not match its directory")
+	}
+	if expectedContextID(metadata.WorkspaceID, metadata.ContextName) != metadata.ContextID {
+		return Metadata{}, errors.New("context metadata name does not match its ID")
 	}
 	return metadata, nil
 }
@@ -152,6 +213,17 @@ func (s Store) ValidateContext(ctx Context) (Metadata, error) {
 		return Metadata{}, err
 	}
 	return s.ReadMetadata(ctx)
+}
+
+func (s Store) ValidateForWorkspace(ctx Context, ws workspace.Workspace) (Metadata, error) {
+	metadata, err := s.ValidateContext(ctx)
+	if err != nil {
+		return Metadata{}, err
+	}
+	if !metadataMatches(metadata, ctx, ws) {
+		return Metadata{}, errors.New("workspace metadata does not match the resolved context")
+	}
+	return metadata, nil
 }
 
 func (s Store) SharedPluginHome() string {
@@ -186,9 +258,13 @@ func (s Store) List() ([]Entry, error) {
 			continue
 		}
 		metadata, err := s.ReadMetadata(ctx)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}
+		ctx.Name = metadata.ContextName
 		_, statErr := os.Stat(metadata.Workspace)
 		entries = append(entries, Entry{
 			Context:  ctx,
@@ -203,8 +279,23 @@ func (s Store) List() ([]Entry, error) {
 	return entries, nil
 }
 
+func (s Store) ListForWorkspace(ws workspace.Workspace) ([]Entry, error) {
+	entries, err := s.List()
+	if err != nil {
+		return nil, err
+	}
+	matching := make([]Entry, 0, len(entries))
+	for _, entry := range entries {
+		metadata := entry.Metadata
+		if metadata.WorkspaceID == ws.ID && workspace.SameRoot(metadata.Workspace, ws.Root) && metadata.Fingerprint == ws.Fingerprint {
+			matching = append(matching, entry)
+		}
+	}
+	return matching, nil
+}
+
 func (s Store) MoveToTrash(ctx Context) (string, error) {
-	if err := s.validateContextDirectories(ctx); err != nil {
+	if _, err := s.ValidateContext(ctx); err != nil {
 		return "", err
 	}
 	trashRoot := filepath.Join(s.Root, trashDirectory)
@@ -220,11 +311,7 @@ func (s Store) MoveToTrash(ctx Context) (string, error) {
 }
 
 func (s Store) validateContextDirectories(ctx Context) error {
-	expected, err := s.Context(ctx.ID)
-	if err != nil {
-		return err
-	}
-	if ctx != expected {
+	if !s.hasExpectedPaths(ctx) {
 		return errors.New("context paths do not match the state root")
 	}
 	for _, directory := range []string{s.Root, filepath.Join(s.Root, contextsDirectory), ctx.Dir, ctx.CFHome} {
@@ -233,6 +320,27 @@ func (s Store) validateContextDirectories(ctx Context) error {
 		}
 	}
 	return nil
+}
+
+func (s Store) hasExpectedPaths(ctx Context) bool {
+	expected, err := s.Context(ctx.ID)
+	return err == nil && sameContextPaths(ctx, expected)
+}
+
+func sameContextPaths(first, second Context) bool {
+	return first.ID == second.ID && first.Dir == second.Dir && first.CFHome == second.CFHome && first.LockPath == second.LockPath && first.MetadataPath == second.MetadataPath
+}
+
+func expectedContextID(workspaceID, name string) string {
+	if name == contextname.Default {
+		return workspaceID
+	}
+	sum := sha256.Sum256([]byte(namedContextPrefix + workspaceID + "\x00" + name))
+	return hex.EncodeToString(sum[:])
+}
+
+func metadataMatches(metadata Metadata, ctx Context, ws workspace.Workspace) bool {
+	return metadata.ContextID == ctx.ID && metadata.ContextName == ctx.Name && metadata.WorkspaceID == ws.ID && workspace.SameRoot(metadata.Workspace, ws.Root) && metadata.Fingerprint == ws.Fingerprint
 }
 
 func (s Store) now() time.Time {

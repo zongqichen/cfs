@@ -5,7 +5,7 @@ still settling. Choose the next version according to semantic versioning.
 
 ## Supported artifacts
 
-Publish archives for the platforms that currently implement workspace locking:
+Publish archives for the platforms that currently implement context locking:
 
 - Linux amd64
 - Linux arm64
@@ -46,7 +46,9 @@ non-production Cloud Foundry foundation:
 3. Confirm a fresh shell in that workspace retains the target.
 4. Run two coding agents in different workspaces and confirm that they retain
    different org and space targets.
-5. Confirm a failed command in a fresh workspace suggests `cfs import` without
+5. Create two named contexts in one workspace, target them independently, and
+   confirm that commands do not cross targets.
+6. Confirm a failed command in a fresh workspace suggests `cfs import` without
    modifying the global target.
 
 Never put credentials, tokens, target configuration, or live acceptance output

@@ -2,10 +2,12 @@ package app
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"strings"
 
 	"github.com/zongqichen/cfs/internal/config"
+	"github.com/zongqichen/cfs/internal/contextname"
 	"github.com/zongqichen/cfs/internal/envvar"
 	"github.com/zongqichen/cfs/internal/runner"
 )
@@ -15,6 +17,7 @@ type statusOutput struct {
 	Workspace      string `json:"workspace,omitempty"`
 	Source         string `json:"source"`
 	Context        string `json:"context,omitempty"`
+	ContextName    string `json:"context_name,omitempty"`
 	OfficialCF     string `json:"official_cf,omitempty"`
 	CFHome         string `json:"cf_home,omitempty"`
 	TargetOutput   string `json:"target_output,omitempty"`
@@ -34,6 +37,10 @@ func commandStatus(options Options, args []string) int {
 		return exitUsage
 	}
 
+	return reportStatus(options, contextname.Default, false, *jsonOutput, *redact)
+}
+
+func reportStatus(options Options, name string, explicit bool, jsonOutput, redact bool) int {
 	cfg, err := config.Load()
 	if err != nil {
 		return reportConfigError(options, err)
@@ -43,14 +50,14 @@ func commandStatus(options Options, args []string) int {
 		return exitUnavailable
 	}
 
-	status := statusOutput{OfficialCF: cfg.RealCFPath, Redacted: *redact}
+	status := statusOutput{OfficialCF: cfg.RealCFPath, Redacted: redact}
 	env := os.Environ()
-	if home, external := externalCFHome(); external {
+	if home, external := externalCFHome(); external && !explicit {
 		status.Mode = "external"
 		status.Source = envvar.CFHome
 		status.CFHome = home
 	} else {
-		managed, resolveErr := resolveManagedContext(cfg)
+		managed, resolveErr := resolveManagedContextForName(cfg, name)
 		if resolveErr != nil {
 			fprintf(options.Stderr, "cfs: %v\n", resolveErr)
 			return exitUnavailable
@@ -60,7 +67,11 @@ func commandStatus(options Options, args []string) int {
 			fprintf(options.Stderr, "cfs: %v\n", timeoutErr)
 			return exitUsage
 		}
-		workspaceLock, activateErr := managed.activate(timeout)
+		workspaceLock, activateErr := managed.activateSelected(timeout)
+		if errors.Is(activateErr, errContextNotFound) {
+			fprintf(options.Stderr, "cfs: context %q does not exist\n", name)
+			return exitUnavailable
+		}
 		if activateErr != nil {
 			fprintf(options.Stderr, "cfs: cannot inspect workspace: %v\n", activateErr)
 			return exitTemporary
@@ -71,6 +82,7 @@ func commandStatus(options Options, args []string) int {
 		status.Workspace = managed.Workspace.Root
 		status.Source = managed.Workspace.Source
 		status.Context = shortID(managed.Context.ID)
+		status.ContextName = managed.Context.Name
 		status.CFHome = managed.Context.CFHome
 		env = managed.environment(env)
 	}
@@ -86,7 +98,7 @@ func commandStatus(options Options, args []string) int {
 		return exitUnavailable
 	}
 	status.TargetExitCode = result.ExitCode
-	if *redact {
+	if redact {
 		status.Workspace = ""
 		status.OfficialCF = ""
 		status.CFHome = ""
@@ -94,7 +106,7 @@ func commandStatus(options Options, args []string) int {
 		status.TargetOutput = joinNonEmpty(targetStdout.String(), targetStderr.String())
 	}
 
-	if *jsonOutput {
+	if jsonOutput {
 		return writeJSON(options, status)
 	}
 	if status.Workspace != "" {
@@ -103,9 +115,9 @@ func commandStatus(options Options, args []string) int {
 	fprintf(options.Stdout, "Mode: %s\n", status.Mode)
 	fprintf(options.Stdout, "Source: %s\n", status.Source)
 	if status.Context != "" {
-		fprintf(options.Stdout, "Context: %s\n", status.Context)
+		fprintf(options.Stdout, "Context: %s (%s)\n", status.ContextName, status.Context)
 	}
-	if *redact {
+	if redact {
 		fprintf(options.Stdout, "CF target exit code: %d\n", status.TargetExitCode)
 		fprintf(options.Stdout, "Details: redacted\n")
 		return result.ExitCode

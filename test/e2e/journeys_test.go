@@ -157,6 +157,101 @@ func TestSameWorkspaceSessionsShareAndCoordinate(t *testing.T) {
 	requireSuccess(t, "same workspace after lock release", afterRelease)
 }
 
+func TestNamedContextsInOneWorkspace(t *testing.T) {
+	mock := newMockCF()
+	t.Cleanup(mock.close)
+	env := newInstalledTestEnvironment(t)
+	outside := makeDirectory(t, filepath.Join(env.root, "named-outside"))
+	workspace := markerWorkspace(t, env.root, "named-contexts")
+
+	loginToTarget(t, env, mock, env.realCF, outside, globalMockTarget)
+	setupCFS(t, env)
+
+	unknown := env.run(t, env.cfs, workspace, nil, "-c", "missing", "apps", "--no-stats")
+	if unknown.code != exitUnavailable || !strings.Contains(unknown.stderr, `context "missing" does not exist`) {
+		t.Fatalf("unknown named context did not fail closed: code=%d stdout=%q stderr=%q", unknown.code, unknown.stdout, unknown.stderr)
+	}
+	invalid := env.run(t, env.cfs, workspace, nil, "-c", "../prod", "apps", "--no-stats")
+	if invalid.code != exitUsage || !strings.Contains(invalid.stderr, "invalid context name") {
+		t.Fatalf("invalid named context did not fail closed: code=%d stdout=%q stderr=%q", invalid.code, invalid.stdout, invalid.stderr)
+	}
+
+	contexts := []namedContextSession{
+		{name: "prod", target: workspaceMockTargets[0]},
+		{name: "poc", target: workspaceMockTargets[1]},
+	}
+	for _, context := range contexts {
+		created := env.run(t, env.cfs, workspace, nil, "context", "create", context.name)
+		requireSuccess(t, "create named context "+context.name, created)
+	}
+	created := env.run(t, env.cfs, workspace, nil, "context", "create", "imported")
+	requireSuccess(t, "create imported context", created)
+	imported := env.run(t, env.cfs, workspace, nil, "import", "--context", "imported", "--yes")
+	requireSuccess(t, "import global target into named context", imported)
+	assertNamedContextApp(t, env, workspace, "imported", globalMockTarget)
+
+	list := env.run(t, env.cfs, workspace, nil, "context", "list", "--json")
+	requireSuccess(t, "list named contexts", list)
+	assertContextNames(t, list.stdout, []string{"default", "imported", "poc", "prod"})
+
+	loginCommands := make([]processCommand, 0, len(contexts))
+	for _, context := range contexts {
+		arguments, input := context.target.loginCommand(mock.server.URL)
+		loginCommands = append(loginCommands, processCommand{
+			name: context.name, executable: env.cfs, directory: workspace, input: input,
+			arguments: append([]string{"-c", context.name}, arguments...),
+		})
+	}
+	mock.expectConcurrentTokenRequests(len(loginCommands))
+	loginResults := runConcurrentCommands(env, loginCommands)
+	assertConcurrentResults(t, "named login", loginCommands, loginResults)
+	if t.Failed() {
+		return
+	}
+	if got := mock.tokenRequestCount(); got != len(loginCommands) {
+		t.Fatalf("concurrent named login requests = %d, want %d", got, len(loginCommands))
+	}
+
+	appCommands := make([]processCommand, 0, len(contexts))
+	for _, context := range contexts {
+		appCommands = append(appCommands, processCommand{
+			name: context.name, executable: env.cfs, directory: workspace,
+			arguments: []string{"-c", context.name, "apps", "--no-stats"},
+		})
+	}
+	mock.expectConcurrentAppRequests(len(appCommands))
+	appResults := runConcurrentCommands(env, appCommands)
+	for _, context := range contexts {
+		result := appResults[context.name]
+		requireSuccess(t, "apps in named context "+context.name, result)
+		assertContains(t, result.stdout, context.target.appName, "named context returned the wrong app")
+	}
+	if got := mock.appRequestCount(); got != len(appCommands) {
+		t.Fatalf("concurrent named app requests = %d, want %d", got, len(appCommands))
+	}
+
+	contextIDs := make(map[string]string, len(contexts))
+	for _, context := range contexts {
+		status := env.run(t, env.cfs, workspace, nil, "context", "status", context.name, "--json", "--redact")
+		requireSuccess(t, "status for named context "+context.name, status)
+		assertJSONField(t, status.stdout, "context_name", context.name)
+		id := contextFromStatus(t, status.stdout)
+		if owner, exists := contextIDs[id]; exists {
+			t.Fatalf("named contexts %s and %s shared context ID %s", owner, context.name, id)
+		}
+		contextIDs[id] = context.name
+	}
+
+	assertNamedContextLocks(t, env, mock, workspace, "prod", "poc")
+	removed := env.run(t, env.cfs, workspace, nil, "context", "remove", "poc", "--yes")
+	requireSuccess(t, "remove named context", removed)
+	afterRemove := env.run(t, env.cfs, workspace, nil, "-c", "poc", "target")
+	if afterRemove.code != exitUnavailable || !strings.Contains(afterRemove.stderr, `context "poc" does not exist`) {
+		t.Fatalf("removed context remained usable: code=%d stdout=%q stderr=%q", afterRemove.code, afterRemove.stdout, afterRemove.stderr)
+	}
+	assertMetadataHasNoSecrets(t, env.state, syntheticSecrets())
+}
+
 func TestInterruptedSessionReleasesWorkspaceLock(t *testing.T) {
 	mock := newMockCF()
 	t.Cleanup(mock.close)

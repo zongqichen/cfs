@@ -17,6 +17,11 @@ type workspaceSession struct {
 	directory string
 }
 
+type namedContextSession struct {
+	name   string
+	target mockTarget
+}
+
 type processCommand struct {
 	name       string
 	executable string
@@ -50,6 +55,30 @@ func assertSameWorkspaceLock(t *testing.T, env testEnvironment, mock *mockCF, pr
 	}
 	mock.unblock()
 	requireSuccess(t, "first same-workspace command after release", <-firstResult)
+}
+
+func assertNamedContextLocks(t *testing.T, env testEnvironment, mock *mockCF, project, busyName, independentName string) {
+	t.Helper()
+	defer mock.unblock()
+	firstResult := make(chan commandResult, 1)
+	go func() {
+		firstResult <- runCommand(env.cfs, project, env.env, "-c", busyName, "curl", "/e2e/block")
+	}()
+
+	select {
+	case <-mock.blockStarted:
+	case <-time.After(processStartupTimeout):
+		t.Fatal("first named-context command did not reach the mock API")
+	}
+	same := env.run(t, env.cfs, project, map[string]string{"CFS_LOCK_TIMEOUT": "100ms"}, "-c", busyName, "target")
+	if same.code != exitTemporary || !strings.Contains(same.stderr, "active CF command") {
+		t.Fatalf("second same-context command was not rejected: code=%d stdout=%q stderr=%q", same.code, same.stdout, same.stderr)
+	}
+	different := env.run(t, env.cfs, project, nil, "-c", independentName, "target")
+	requireSuccess(t, "command in independently locked named context", different)
+
+	mock.unblock()
+	requireSuccess(t, "first named-context command after release", <-firstResult)
 }
 
 func assertExplicitWorkspace(t *testing.T, env testEnvironment, outside string) {
@@ -143,6 +172,13 @@ func assertWorkspaceApp(t *testing.T, env testEnvironment, workspace string, tar
 	apps := env.run(t, "cf", workspace, nil, "apps", "--no-stats")
 	requireSuccess(t, "apps in workspace "+target.name, apps)
 	assertContains(t, apps.stdout, target.appName, "workspace used the wrong target")
+}
+
+func assertNamedContextApp(t *testing.T, env testEnvironment, workspace, name string, target mockTarget) {
+	t.Helper()
+	apps := env.run(t, env.cfs, workspace, nil, "-c", name, "apps", "--no-stats")
+	requireSuccess(t, "apps in named context "+name, apps)
+	assertContains(t, apps.stdout, target.appName, "named context used the wrong target")
 }
 
 func createGitWorktrees(t *testing.T, env testEnvironment) (string, string) {
