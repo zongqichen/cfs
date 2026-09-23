@@ -24,7 +24,7 @@ smoke:
 	./scripts/smoke-real-cf.sh
 
 e2e:
-	go test -count=1 -tags=e2e -v ./test/e2e
+	go test -count=1 -race -tags=e2e -v ./test/e2e
 
 release-check:
 	./scripts/check-release-builds.sh

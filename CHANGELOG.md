@@ -9,9 +9,6 @@ contract may still change while cfs is pre-1.0.
 
 ### Added
 
-- Added native Windows amd64 support with a checksum-tracked executable shim,
-  `LockFileEx` workspace locking, Windows path and environment handling, CI,
-  end-to-end coverage, and ZIP release artifacts.
 - Added `cfs import` for explicitly copying an existing global CF context into
   a workspace, with confirmation, automation, and overwrite safeguards.
 - Added redacted status output for shared logs and workspace-target guidance to
@@ -25,6 +22,8 @@ contract may still change while cfs is pre-1.0.
 
 ### Changed
 
+- Windows packaging is deferred; supported release targets remain Linux and
+  macOS on amd64 and arm64.
 - Source builds now require Go 1.26.8 or newer; release builds use Go 1.27.1.
 - Global-target discovery now reads the CF configuration without invoking the
   official CLI, so inspection cannot rewrite global state.

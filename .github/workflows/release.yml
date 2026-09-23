@@ -98,7 +98,6 @@ jobs:
         with:
           subject-path: |
             dist/cfs_*.tar.gz
-            dist/cfs_*.zip
             dist/checksums.txt
 
       - name: Publish GitHub pre-release
@@ -109,7 +108,6 @@ jobs:
         run: |
           gh release create "$RELEASE_TAG" \
             dist/cfs_*.tar.gz \
-            dist/cfs_*.zip \
             dist/checksums.txt \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \

@@ -28,13 +28,6 @@ Managed `CF_HOME` directories contain the same authentication material as an
 ordinary official CF CLI home. Owner-only filesystem permissions protect them
 from other local users, but the files are not encrypted by `cfs`; backups and
 host administrators may still access them.
-On Windows, these files inherit access control from `%LOCALAPPDATA%` or the
-configured state directory because POSIX permission bits are not authoritative.
-Do not place `CFS_STATE_HOME` in a directory shared with other users.
-
-Windows uses a regular `cf.exe` shim copy because symbolic links may require
-elevated privileges. A sidecar manifest binds that copy to its SHA-256 digest;
-setup and uninstall refuse to replace or remove an unknown or modified file.
 
 `cfs import` makes an explicit, one-time copy of `$HOME/.cf/config.json`, which
 can contain access tokens, refresh tokens, and client secrets. It requires an

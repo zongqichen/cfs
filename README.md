@@ -18,7 +18,7 @@ terminal changes it everywhere. `cfs` gives each workspace an isolated
 
 ## Install
 
-Requires Linux, macOS, or Windows x86-64 and the
+Requires Linux or macOS on x86-64 or arm64 and the
 [official CF CLI](https://github.com/cloudfoundry/cli). Building from source also
 requires Go 1.26.8+.
 
@@ -35,14 +35,8 @@ cfs doctor
 command -v cf
 ```
 
-In PowerShell, use `(Get-Command cf).Source` instead of `command -v cf`.
-
 Prebuilt binaries are available from
 [GitHub Releases](https://github.com/zongqichen/cfs/releases).
-On Windows, `cfs setup` installs a checksum-tracked `cf.exe` copy under
-`%LOCALAPPDATA%\cfs\shims`; it does not require administrator access or
-symbolic-link privileges. Add the printed directory to the beginning of the user
-`PATH`.
 
 ## Use
 

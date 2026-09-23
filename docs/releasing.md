@@ -11,10 +11,8 @@ Publish archives for the platforms that currently implement workspace locking:
 - Linux arm64
 - macOS amd64
 - macOS arm64
-- Windows amd64
 
-Windows archives use ZIP; Linux and macOS archives use tar.gz. Each release
-should include SHA-256 checksums. Supply
+Release archives use tar.gz and include SHA-256 checksums. Supply
 chain provenance and an SBOM are recommended before calling a release stable.
 
 ## Required gates
@@ -67,7 +65,7 @@ The manually started workflow uses GoReleaser v2. It:
 1. validates that the requested semantic version tag is the current `main` commit;
 2. checks out that tag with full history;
 3. reruns tests, vulnerability and secret scans, and the release-build check;
-4. builds the five supported archives with `CGO_ENABLED=0` and `-trimpath`;
+4. builds the four supported archives with `CGO_ENABLED=0` and `-trimpath`;
 5. injects version, commit, and build date into `main.version`, `main.commit`, and
    `main.buildDate`;
 6. publishes `checksums.txt` and GitHub artifact attestations; and

@@ -83,14 +83,12 @@ Add this directory to the beginning of PATH: /Users/alice/.local/share/cfs/shims
 Run 'cfs doctor' to verify the installation.
 ```
 
-Linux packages, Homebrew formulae, and Windows installers can provide the same
-logical setup. The command name is `cfs`.
+Linux packages and Homebrew formulae can provide the same logical setup. The
+command name is `cfs`.
 
-`cfs setup` does not modify a shell profile or the Windows user environment. It
-records the canonical path of the existing official `cf` executable before
-installing the shim and prints the PATH change the user can add explicitly. On
-Windows, the shim is a checksum-tracked executable copy so setup does not require
-symbolic-link privileges.
+`cfs setup` does not modify a shell profile. It records the canonical path of
+the existing official `cf` executable before installing the shim and prints the
+PATH change the user can add explicitly.
 
 ### 4.2 Normal use
 
@@ -214,10 +212,7 @@ One executable supports two invocation modes:
 - Invoked as `cf`: transparent shim mode.
 - Invoked as `cfs`: control and diagnostic mode.
 
-The installed `cf` shim is a symbolic link on Unix-like systems and a
-checksum-tracked `cf.exe` copy on Windows. The Windows copy has a sidecar SHA-256
-manifest so it can be upgraded and removed without touching an unmanaged
-executable.
+The installed `cf` shim is a symbolic link on supported systems.
 
 ## 7. Execution algorithm
 
@@ -334,12 +329,10 @@ Default state roots:
 
 - Linux: `$XDG_STATE_HOME/cfs`, or `$HOME/.local/state/cfs`.
 - macOS: `$HOME/Library/Application Support/cfs`.
-- Windows: `%LOCALAPPDATA%\cfs`.
 
 Security requirements:
 
-- Private directories use owner-only permissions on Unix-like systems and
-  inherit the selected parent directory ACL on Windows.
+- Private directories use owner-only permissions.
 - CF configuration files retain mode `0600` on Unix-like systems.
 - Metadata never contains tokens, passwords, client secrets, or command lines.
 - Context IDs are validated fixed-length hexadecimal strings.
@@ -468,9 +461,8 @@ test/
   e2e/                 official CLI and mock CF/UAA lifecycle tests
 ```
 
-Platform-specific files isolate Unix and Windows locking, permissions, signals,
-and shim installation behavior. Windows locking uses `LockFileEx`; Windows shim
-installation does not depend on Developer Mode or administrator privileges.
+Platform-specific files isolate locking, permissions, signals, and shim
+installation behavior.
 
 ## 17. MVP scope
 
@@ -485,11 +477,12 @@ The first usable release includes:
 - `setup`, `status`, `import`, `doctor`, `reset`, `gc`, `uninstall`, and
   `version`.
 - Human-readable English output and stable JSON diagnostics.
-- Linux, macOS, and Windows amd64 support.
+- Linux and macOS support on amd64 and arm64.
 - Automated tests against supported official CF CLI versions.
 
 Explicitly deferred:
 
+- Native Windows distribution and support.
 - Read-only snapshots for long-running commands.
 - Repository move/rebind support.
 - Target allow-list policies.
