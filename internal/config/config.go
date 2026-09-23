@@ -93,26 +93,24 @@ func StateRoot(cfg Config) (string, error) {
 
 func validateStateRoot(root string) (string, error) {
 	clean := filepath.Clean(root)
-	volumeRoot := filepath.Clean(filepath.VolumeName(clean) + string(os.PathSeparator))
-	if pathutil.Equal(clean, volumeRoot) {
-		return "", fmt.Errorf("refusing to use filesystem root as cfs state directory: %s", clean)
-	}
-	home, err := os.UserHomeDir()
-	if err == nil {
-		home, _ = filepath.Abs(home)
-		if pathutil.Equal(clean, home) {
-			return "", fmt.Errorf("refusing to use the user home as cfs state directory: %s", clean)
-		}
-	}
-	if temporary := filepath.Clean(os.TempDir()); pathutil.Equal(clean, temporary) {
-		return "", fmt.Errorf("refusing to use the shared temporary directory as cfs state directory: %s", clean)
-	}
 	if err := securefs.RejectSymlink(clean); err != nil {
 		return "", fmt.Errorf("refusing unsafe cfs state directory: %w", err)
 	}
 	canonical, err := securefs.CanonicalPath(clean)
 	if err != nil {
 		return "", fmt.Errorf("resolve cfs state directory: %w", err)
+	}
+	volumeRoot := filepath.Clean(filepath.VolumeName(canonical) + string(os.PathSeparator))
+	if pathutil.Equal(canonical, volumeRoot) {
+		return "", fmt.Errorf("refusing to use filesystem root as cfs state directory: %s", clean)
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		if canonicalHome, canonicalErr := securefs.CanonicalPath(home); canonicalErr == nil && pathutil.Equal(canonical, canonicalHome) {
+			return "", fmt.Errorf("refusing to use the user home as cfs state directory: %s", clean)
+		}
+	}
+	if temporary, err := securefs.CanonicalPath(os.TempDir()); err == nil && pathutil.Equal(canonical, temporary) {
+		return "", fmt.Errorf("refusing to use the shared temporary directory as cfs state directory: %s", clean)
 	}
 	return canonical, nil
 }

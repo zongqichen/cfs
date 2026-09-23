@@ -26,7 +26,11 @@ func TestWindowsDefaultDirectoriesUseLocalAppData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := filepath.Join(localAppData, "cfs"); stateRoot != want {
+	canonicalLocalAppData, err := filepath.EvalSymlinks(localAppData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(canonicalLocalAppData, "cfs"); stateRoot != want {
 		t.Fatalf("StateRoot() = %q, want %q", stateRoot, want)
 	}
 	if _, err := os.Stat(localAppData); err != nil {
