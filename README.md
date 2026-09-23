@@ -110,4 +110,6 @@ make smoke
 ```
 
 See the [design](docs/design.md) and [release guide](docs/releasing.md). Licensed
-under [Apache-2.0](LICENSE), like the official CF CLI.
+under [Apache-2.0](LICENSE), like the official CF CLI. Contributions are
+welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[Code of Conduct](CODE_OF_CONDUCT.md).

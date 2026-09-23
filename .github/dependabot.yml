@@ -4,3 +4,32 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - chore
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      non-major-updates:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - chore
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      non-major-updates:
+        update-types:
+          - minor
+          - patch
