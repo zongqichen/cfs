@@ -5,7 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
+
+	"github.com/zongqichen/cfs/internal/pathutil"
 )
 
 func Name(base string) string {
@@ -42,17 +43,7 @@ func Resolve(path string) (string, error) {
 }
 
 func Same(first, second string) bool {
-	firstAbs, firstErr := filepath.Abs(first)
-	secondAbs, secondErr := filepath.Abs(second)
-	if firstErr != nil || secondErr != nil {
-		return false
-	}
-	firstAbs = filepath.Clean(firstAbs)
-	secondAbs = filepath.Clean(secondAbs)
-	if runtime.GOOS == "windows" {
-		return strings.EqualFold(firstAbs, secondAbs)
-	}
-	return firstAbs == secondAbs
+	return pathutil.Equal(first, second)
 }
 
 func canonical(path string) (string, error) {

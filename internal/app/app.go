@@ -41,7 +41,7 @@ func Run(options Options) int {
 	}
 
 	name := filepath.Base(options.Args[0])
-	if strings.EqualFold(name, executable.Name("cf")) {
+	if strings.EqualFold(name, "cf") || strings.EqualFold(name, executable.Name("cf")) {
 		return runShim(options, options.Args[1:])
 	}
 	return runControl(options, options.Args[1:])

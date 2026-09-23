@@ -10,6 +10,7 @@ import (
 	"runtime"
 
 	"github.com/zongqichen/cfs/internal/envvar"
+	"github.com/zongqichen/cfs/internal/pathutil"
 	"github.com/zongqichen/cfs/internal/securefs"
 )
 
@@ -92,20 +93,6 @@ func StateRoot(cfg Config) (string, error) {
 
 func validateStateRoot(root string) (string, error) {
 	clean := filepath.Clean(root)
-	volumeRoot := filepath.Clean(filepath.VolumeName(clean) + string(os.PathSeparator))
-	if clean == volumeRoot {
-		return "", fmt.Errorf("refusing to use filesystem root as cfs state directory: %s", clean)
-	}
-	home, err := os.UserHomeDir()
-	if err == nil {
-		home, _ = filepath.Abs(home)
-		if clean == filepath.Clean(home) {
-			return "", fmt.Errorf("refusing to use the user home as cfs state directory: %s", clean)
-		}
-	}
-	if temporary := filepath.Clean(os.TempDir()); clean == temporary {
-		return "", fmt.Errorf("refusing to use the shared temporary directory as cfs state directory: %s", clean)
-	}
 	if err := securefs.RejectSymlink(clean); err != nil {
 		return "", fmt.Errorf("refusing unsafe cfs state directory: %w", err)
 	}
@@ -113,12 +100,35 @@ func validateStateRoot(root string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve cfs state directory: %w", err)
 	}
+	volumeRoot := filepath.Clean(filepath.VolumeName(canonical) + string(os.PathSeparator))
+	if pathutil.Equal(canonical, volumeRoot) {
+		return "", fmt.Errorf("refusing to use filesystem root as cfs state directory: %s", clean)
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		if canonicalHome, canonicalErr := securefs.CanonicalPath(home); canonicalErr == nil && pathutil.Equal(canonical, canonicalHome) {
+			return "", fmt.Errorf("refusing to use the user home as cfs state directory: %s", clean)
+		}
+	}
+	if temporary, err := securefs.CanonicalPath(os.TempDir()); err == nil && pathutil.Equal(canonical, temporary) {
+		return "", fmt.Errorf("refusing to use the shared temporary directory as cfs state directory: %s", clean)
+	}
 	return canonical, nil
 }
 
 func DefaultShimDir() (string, error) {
 	if value := os.Getenv(envvar.ShimDir); value != "" {
 		return filepath.Abs(value)
+	}
+	if runtime.GOOS == "windows" {
+		base := os.Getenv(envvar.LocalAppData)
+		if base == "" {
+			var err error
+			base, err = os.UserConfigDir()
+			if err != nil {
+				return "", fmt.Errorf("resolve local application data: %w", err)
+			}
+		}
+		return filepath.Join(base, applicationName, "shims"), nil
 	}
 
 	home, err := os.UserHomeDir()

@@ -337,12 +337,6 @@ func TestResetUsesConfiguredLockTimeout(t *testing.T) {
 	}
 }
 
-type commandResult struct {
-	code   int
-	stdout string
-	stderr string
-}
-
 func runFromDirectory(t *testing.T, directory string, args []string) commandResult {
 	return runFromDirectoryWithInput(t, directory, args, "")
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 const (
@@ -41,7 +42,7 @@ func ValidateDirectory(path string) error {
 		_ = directory.Close()
 		return fmt.Errorf("inspect private directory %s: %w", path, statErr)
 	}
-	if info.Mode().Perm()&0o077 != 0 {
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
 		_ = directory.Close()
 		return fmt.Errorf("private directory permissions are too broad on %s: %04o", path, info.Mode().Perm())
 	}

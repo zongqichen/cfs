@@ -28,7 +28,7 @@ func TestSaveAndLoad(t *testing.T) {
 	}
 	if info, err := os.Stat(path); err != nil {
 		t.Fatal(err)
-	} else if info.Mode().Perm() != 0o600 {
+	} else if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
 		t.Fatalf("config permissions = %o, want 600", info.Mode().Perm())
 	}
 }
@@ -107,5 +107,26 @@ func TestStateRootCanonicalizesParentSymbolicLink(t *testing.T) {
 	want := filepath.Join(canonicalTarget, "state")
 	if got != want {
 		t.Fatalf("StateRoot() = %q, want %q", got, want)
+	}
+}
+
+func TestStateRootRejectsCanonicalHomeAlias(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symbolic-link creation requires additional privileges on Windows")
+	}
+	root := t.TempDir()
+	realParent := filepath.Join(root, "real")
+	home := filepath.Join(realParent, "home")
+	if err := os.MkdirAll(home, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+	aliasParent := filepath.Join(root, "alias")
+	if err := os.Symlink(realParent, aliasParent); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := StateRoot(Config{StateDir: filepath.Join(aliasParent, "home")}); err == nil {
+		t.Fatal("StateRoot() error = nil, want canonical home rejection")
 	}
 }

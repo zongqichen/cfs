@@ -109,7 +109,7 @@ func (s Store) Ensure(ctx Context, ws workspace.Workspace) error {
 	} else if err != nil {
 		return err
 	} else {
-		if metadata.ContextID != ws.ID || metadata.Workspace != ws.Root || metadata.Fingerprint != ws.Fingerprint {
+		if metadata.ContextID != ws.ID || !workspace.SameRoot(metadata.Workspace, ws.Root) || metadata.Fingerprint != ws.Fingerprint {
 			return errors.New("workspace metadata does not match the resolved context")
 		}
 		metadata.LastUsedAt = s.now().UTC()

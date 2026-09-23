@@ -74,7 +74,7 @@ func Setup(options SetupOptions) (SetupResult, error) {
 	}
 	if err := config.Save(cfg); err != nil {
 		if shimCreated {
-			_ = os.Remove(shimPath)
+			_ = removeShim(shimPath, self)
 		}
 		return SetupResult{}, err
 	}
@@ -97,30 +97,12 @@ func Uninstall() (string, error) {
 		return "", err
 	}
 	shimPath := filepath.Join(cfg.ShimDir, executable.Name("cf"))
-
-	info, err := os.Lstat(shimPath)
-	if errors.Is(err, os.ErrNotExist) {
-		return shimPath, nil
-	}
-	if err != nil {
-		return "", fmt.Errorf("inspect shim: %w", err)
-	}
-	if info.Mode()&os.ModeSymlink == 0 {
-		return "", fmt.Errorf("refusing to remove non-symlink at %s", shimPath)
-	}
-	target, err := filepath.EvalSymlinks(shimPath)
-	if err != nil {
-		return "", fmt.Errorf("resolve shim target: %w", err)
-	}
 	self, err := executable.Current()
 	if err != nil {
 		return "", err
 	}
-	if !executable.Same(target, self) {
-		return "", fmt.Errorf("refusing to remove shim owned by another executable: %s", shimPath)
-	}
-	if err := os.Remove(shimPath); err != nil {
-		return "", fmt.Errorf("remove shim: %w", err)
+	if err := removeShim(shimPath, self); err != nil {
+		return "", err
 	}
 	return shimPath, nil
 }
@@ -143,7 +125,15 @@ func resolveRealCF(explicit, self string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve official CF CLI: %w", err)
 	}
-	if executable.Same(real, self) {
+	managedShim, managedErr := isManagedShim(real)
+	currentShim, currentErr := matchesShimExecutable(real, self)
+	if currentErr != nil {
+		return "", fmt.Errorf("inspect discovered cf command: %w", currentErr)
+	}
+	if managedErr != nil && !currentShim {
+		return "", fmt.Errorf("inspect discovered cf command: %w", managedErr)
+	}
+	if currentShim || managedShim {
 		if cfg, loadErr := config.Load(); loadErr == nil && !executable.Same(cfg.RealCFPath, self) {
 			return validateExecutable(cfg.RealCFPath)
 		}
@@ -160,24 +150,8 @@ func validateExecutable(path string) (string, error) {
 	return real, nil
 }
 
-func installShim(path, target string) (bool, error) {
-	if info, err := os.Lstat(path); err == nil {
-		if info.Mode()&os.ModeSymlink == 0 {
-			return false, fmt.Errorf("refusing to replace existing non-symlink: %s", path)
-		}
-		existing, resolveErr := filepath.EvalSymlinks(path)
-		if resolveErr == nil && executable.Same(existing, target) {
-			return false, nil
-		}
-		return false, fmt.Errorf("refusing to replace existing shim: %s", path)
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return false, fmt.Errorf("inspect shim path: %w", err)
-	}
-
-	if err := os.Symlink(target, path); err != nil {
-		return false, fmt.Errorf("install shim: %w", err)
-	}
-	return true, nil
+func ValidateShim(path, target string) error {
+	return validateShim(path, target)
 }
 
 func pathSelectsShim(shimPath string) bool {

@@ -1,13 +1,20 @@
 # Testing
 
-`make check` runs the portable unit, process, race, and vet checks. `make smoke`
-runs the official CF CLI with isolated local configuration but makes no network
-requests.
+`make check` runs the portable unit, process, race, and vet checks. CI executes
+the test suite on Linux, macOS, and Windows. `make smoke` runs the official CF
+CLI with isolated local configuration but makes no network requests.
 
 Run the full protocol test with an official CF CLI binary:
 
 ```sh
 CFS_REAL_CF=/absolute/path/to/cf make e2e
+```
+
+From PowerShell on Windows:
+
+```powershell
+$env:CFS_REAL_CF = "C:\path\to\cf.exe"
+go test -count=1 -tags=e2e -v ./test/e2e
 ```
 
 The E2E suite installs the current cfs source into a temporary bin directory,
@@ -28,7 +35,8 @@ It verifies:
 - setup, doctor, reset, garbage collection, state preservation, uninstall, and
   restored direct CLI access.
 
-CI downloads a checksum-pinned CF CLI version and runs this suite on Linux.
+CI downloads checksum-pinned CF CLI archives and runs this suite on Linux and
+Windows.
 It does not replace a smoke test against a live foundation, enterprise identity
 provider, or third-party plugin. Signal forwarding remains covered by the
 focused process tests in `make check`.

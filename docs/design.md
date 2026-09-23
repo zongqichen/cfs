@@ -83,12 +83,14 @@ Add this directory to the beginning of PATH: /Users/alice/.local/share/cfs/shims
 Run 'cfs doctor' to verify the installation.
 ```
 
-Future Linux packages, Homebrew formulae, and Windows installers will provide
-the same logical setup. The command name is `cfs`.
+Linux packages, Homebrew formulae, and Windows installers can provide the same
+logical setup. The command name is `cfs`.
 
-`cfs setup` does not modify a shell profile. It records the canonical path of
-the existing official `cf` executable before installing the shim and prints the
-PATH change the user can add explicitly.
+`cfs setup` does not modify a shell profile or the Windows user environment. It
+records the canonical path of the existing official `cf` executable before
+installing the shim and prints the PATH change the user can add explicitly. On
+Windows, the shim is a checksum-tracked executable copy so setup does not require
+symbolic-link privileges.
 
 ### 4.2 Normal use
 
@@ -212,8 +214,10 @@ One executable supports two invocation modes:
 - Invoked as `cf`: transparent shim mode.
 - Invoked as `cfs`: control and diagnostic mode.
 
-The installed `cf` shim may be a symbolic link, hard link, or small launcher
-that points to the `cfs` executable.
+The installed `cf` shim is a symbolic link on Unix-like systems and a
+checksum-tracked `cf.exe` copy on Windows. The Windows copy has a sidecar SHA-256
+manifest so it can be upgraded and removed without touching an unmanaged
+executable.
 
 ## 7. Execution algorithm
 
@@ -334,7 +338,8 @@ Default state roots:
 
 Security requirements:
 
-- Private directories use owner-only permissions where supported.
+- Private directories use owner-only permissions on Unix-like systems and
+  inherit the selected parent directory ACL on Windows.
 - CF configuration files retain mode `0600` on Unix-like systems.
 - Metadata never contains tokens, passwords, client secrets, or command lines.
 - Context IDs are validated fixed-length hexadecimal strings.
@@ -464,7 +469,8 @@ test/
 ```
 
 Platform-specific files isolate Unix and Windows locking, permissions, signals,
-and shim installation behavior.
+and shim installation behavior. Windows locking uses `LockFileEx`; Windows shim
+installation does not depend on Developer Mode or administrator privileges.
 
 ## 17. MVP scope
 
@@ -479,11 +485,8 @@ The first usable release includes:
 - `setup`, `status`, `import`, `doctor`, `reset`, `gc`, `uninstall`, and
   `version`.
 - Human-readable English output and stable JSON diagnostics.
-- Linux and macOS support.
+- Linux, macOS, and Windows amd64 support.
 - Automated tests against supported official CF CLI versions.
-
-Windows support is part of the architecture but may follow after the Unix MVP
-unless release requirements demand simultaneous availability.
 
 Explicitly deferred:
 

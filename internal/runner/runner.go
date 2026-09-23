@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"runtime"
+	"strings"
 )
 
 type IO struct {
@@ -59,9 +61,13 @@ func Run(path string, args []string, env []string, streams IO) (Result, error) {
 }
 
 func ReplaceEnv(env []string, values map[string]string) []string {
+	replaced := make(map[string]struct{}, len(values))
+	for key := range values {
+		replaced[normalizeEnvName(key)] = struct{}{}
+	}
 	result := make([]string, 0, len(env)+len(values))
 	for _, entry := range env {
-		if _, replaced := values[envKey(entry)]; !replaced {
+		if _, found := replaced[normalizeEnvName(envKey(entry))]; !found {
 			result = append(result, entry)
 		}
 	}
@@ -74,11 +80,11 @@ func ReplaceEnv(env []string, values map[string]string) []string {
 func WithoutEnv(env []string, names ...string) []string {
 	removed := make(map[string]struct{}, len(names))
 	for _, name := range names {
-		removed[name] = struct{}{}
+		removed[normalizeEnvName(name)] = struct{}{}
 	}
 	result := make([]string, 0, len(env))
 	for _, entry := range env {
-		if _, remove := removed[envKey(entry)]; !remove {
+		if _, remove := removed[normalizeEnvName(envKey(entry))]; !remove {
 			result = append(result, entry)
 		}
 	}
@@ -92,4 +98,11 @@ func envKey(entry string) string {
 		}
 	}
 	return entry
+}
+
+func normalizeEnvName(name string) string {
+	if runtime.GOOS == "windows" {
+		return strings.ToUpper(name)
+	}
+	return name
 }

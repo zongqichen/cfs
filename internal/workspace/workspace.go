@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/zongqichen/cfs/internal/envvar"
+	"github.com/zongqichen/cfs/internal/pathutil"
 )
 
 const (
@@ -146,7 +147,7 @@ func identify(root, source string) Workspace {
 	fingerprint := repositoryFingerprint(root)
 	hash := sha256.New()
 	hash.Write([]byte(contextHashPrefix))
-	hash.Write([]byte(root))
+	hash.Write([]byte(pathutil.Identity(root)))
 	hash.Write([]byte{0})
 	hash.Write([]byte(fingerprint))
 	id := hex.EncodeToString(hash.Sum(nil))
@@ -174,6 +175,10 @@ func repositoryFingerprint(root string) string {
 	if real, err := filepath.EvalSymlinks(gitDir); err == nil {
 		gitDir = real
 	}
-	sum := sha256.Sum256([]byte(filepath.Clean(gitDir)))
+	sum := sha256.Sum256([]byte(pathutil.Identity(gitDir)))
 	return hex.EncodeToString(sum[:])
+}
+
+func SameRoot(first, second string) bool {
+	return pathutil.Equal(first, second)
 }
