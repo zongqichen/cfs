@@ -1,7 +1,7 @@
 # Contributing to cfs
 
-Thanks for improving cfs. Keep changes focused, portable across Linux, macOS,
-and Windows, and compatible with the documented minimum Go version.
+Thanks for improving cfs. Keep changes focused, portable across Linux and
+macOS, and compatible with the documented minimum Go version.
 Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Before opening a pull request
