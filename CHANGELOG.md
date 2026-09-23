@@ -7,10 +7,16 @@ contract may still change while cfs is pre-1.0.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-23
+
 ### Added
 
 - Added `cfs update` with agent-safe JSON output and cached, opt-out update
   notices that never run from the transparent `cf` shim.
+
+### Changed
+
+- Documented one-command installation of the optional cfs Agent Skill.
 
 ## [0.2.0] - 2026-09-23
 
@@ -87,7 +93,8 @@ contract may still change while cfs is pre-1.0.
 - Linux and macOS release builds, checksums, provenance, CI, smoke tests, and an
   Apache-2.0 license.
 
-[Unreleased]: https://github.com/zongqichen/cfs/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/zongqichen/cfs/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/zongqichen/cfs/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/zongqichen/cfs/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/zongqichen/cfs/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/zongqichen/cfs/releases/tag/v0.1.0
