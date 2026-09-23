@@ -9,6 +9,10 @@ contract may still change while cfs is pre-1.0.
 
 ### Added
 
+- Added workspace-local named contexts for safely running multiple Cloud
+  Foundry targets in one project through `cfs -c <name> ...`.
+- Added `cfs context create|list|status|remove` and named-context import through
+  `cfs import --context <name>`.
 - Added `cfs import` for explicitly copying an existing global CF context into
   a workspace, with confirmation, automation, and overwrite safeguards.
 - Added redacted status output for shared logs and workspace-target guidance to

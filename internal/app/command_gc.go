@@ -17,6 +17,7 @@ const (
 
 type gcEntry struct {
 	Context   string   `json:"context"`
+	Name      string   `json:"name"`
 	Workspace string   `json:"workspace"`
 	Action    gcAction `json:"action"`
 	Path      string   `json:"path,omitempty"`
@@ -75,7 +76,12 @@ func collectGarbage(entries []store.Entry, stateStore store.Store, apply bool) (
 		if !entry.Orphaned {
 			continue
 		}
-		result := gcEntry{Context: shortID(entry.Context.ID), Workspace: entry.Metadata.Workspace, Action: gcWouldTrash}
+		result := gcEntry{
+			Context:   shortID(entry.Context.ID),
+			Name:      entry.Metadata.ContextName,
+			Workspace: entry.Metadata.Workspace,
+			Action:    gcWouldTrash,
+		}
 		if apply {
 			workspaceLock, lockErr := lock.Acquire(entry.Context.LockPath, 0)
 			if lockErr != nil {
@@ -104,7 +110,7 @@ func printGCResults(options Options, results []gcEntry, applied bool) {
 		return
 	}
 	for _, result := range results {
-		fprintf(options.Stdout, "%-12s %s (%s)\n", result.Action, result.Workspace, result.Context)
+		fprintf(options.Stdout, "%-12s %s [%s:%s]\n", result.Action, result.Workspace, result.Name, result.Context)
 	}
 	if !applied {
 		fprintf(options.Stdout, "Run 'cfs gc --apply' to move these contexts to trash.\n")

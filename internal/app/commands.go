@@ -44,10 +44,17 @@ func allCommands() []commandSpec {
 			run:      commandStatus,
 		},
 		{
+			name:     "context",
+			summary:  "Manage named Cloud Foundry contexts in the current workspace",
+			usage:    "cfs context <create|list|status|remove> [options]",
+			examples: "  cfs context create prod\n  cfs context list\n  cfs context status prod --json --redact",
+			run:      commandContext,
+		},
+		{
 			name:     "import",
-			summary:  "Import the global CF context into this workspace",
-			usage:    "cfs import [--yes] [--force]",
-			examples: "  cfs import\n  cfs import --yes",
+			summary:  "Import global CF state into a workspace context",
+			usage:    "cfs import [--context <name>] [--yes] [--force]",
+			examples: "  cfs import\n  cfs import --yes\n  cfs import --context prod --yes",
 			run:      commandImport,
 		},
 		{
@@ -214,11 +221,11 @@ func writeJSON(options Options, value any) int {
 
 func printHelp(output io.Writer) {
 	fprintf(output, "cfs keeps Cloud Foundry CLI state isolated per workspace.\n\n")
-	fprintf(output, "Usage:\n  cfs <command> [options]\n  cfs help <command>\n\nCommands:\n")
+	fprintf(output, "Usage:\n  cfs <command> [options]\n  cfs -c <name> <cf arguments...>\n  cfs help <command>\n\nCommands:\n")
 	for _, command := range allCommands() {
 		fprintf(output, "  %-11s %s\n", command.name, command.summary)
 	}
-	fprintf(output, "\nEnvironment:\n  %s  Override automatic workspace discovery\n  %s      Override the state directory\n  %s    Maximum wait for a workspace lock (default: %s)\n  %s=1       Bypass workspace isolation for one invocation\n\nNormal Cloud Foundry commands remain unchanged:\n  cf login --sso\n  cf target -o my-org -s my-space\n  cf apps\n", envvar.WorkspaceRoot, envvar.StateHome, envvar.LockTimeout, defaultLockTimeout, envvar.Disable)
+	fprintf(output, "\nEnvironment:\n  %s  Override automatic workspace discovery\n  %s      Override the state directory\n  %s    Maximum wait for a context lock (default: %s)\n  %s=1       Bypass workspace isolation for one invocation\n\nNormal Cloud Foundry commands remain unchanged:\n  cf login --sso\n  cf target -o my-org -s my-space\n  cf apps\n", envvar.WorkspaceRoot, envvar.StateHome, envvar.LockTimeout, defaultLockTimeout, envvar.Disable)
 }
 
 func shortID(id string) string {

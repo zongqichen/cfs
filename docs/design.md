@@ -5,9 +5,9 @@ Status: Implementing
 ## 1. Product definition
 
 `cfs` is a project-scoped runtime for the official Cloud Foundry CLI. It gives
-each development workspace its own Cloud Foundry API target, organization,
-space, and authentication state without requiring users or coding tools to
-select a named session.
+each development workspace a default Cloud Foundry API target, organization,
+space, and authentication state. Optional workspace-local names support
+multiple targets in one workspace without shared mutable selection.
 
 Product statement:
 
@@ -30,14 +30,14 @@ product.
 - A transparent shim for the `cf` command.
 - A deterministic workspace resolver.
 - A secure store for separate CF CLI home directories.
-- A per-workspace command coordinator.
+- A per-context command coordinator.
 
 `cfs` is not:
 
 - A Cloud Foundry CLI plugin.
 - A replacement Cloud Foundry client.
 - An OAuth implementation, credential vault, or synchronization service.
-- A named session switcher.
+- A global or shell-mutating context switcher.
 - A Codex, Claude Code, or IDE plugin.
 - A background daemon.
 
@@ -47,10 +47,11 @@ Cloud Foundry deployments.
 
 ## 3. Design principles
 
-1. **Workspace is the default isolation boundary.** One Git worktree maps to
-   one CF CLI state directory.
-2. **Normal use is implicit.** Users run `cf`; they do not create or select
-   sessions.
+1. **Workspace is the default isolation boundary.** One Git worktree maps to a
+   default CF CLI state directory; explicit names add independent state within
+   that workspace.
+2. **Normal use is implicit.** Users run `cf`; they do not create or select the
+   default context.
 3. **Implicit does not mean invisible.** The active workspace and target are
    always inspectable.
 4. **Delegate instead of reimplementing.** Every CF operation is performed by
@@ -61,8 +62,8 @@ Cloud Foundry deployments.
    signals, and exit status pass through unchanged.
 7. **Keep credentials out of repositories.** All mutable state remains in a
    user-private operating-system state directory.
-8. **Different workspaces run concurrently.** Commands sharing one workspace
-   are coordinated to prevent configuration races.
+8. **Different context identities run concurrently.** Commands sharing one
+   workspace and context name are coordinated to prevent configuration races.
 9. **Installation is explicit and reversible.** The official CLI is never
    overwritten, renamed, or deleted.
 10. **No telemetry by default.** The product does not collect command
@@ -99,7 +100,8 @@ $ cf target -o commerce -s development
 $ cf apps
 ```
 
-There is no `cfs create`, `cfs use`, or `cfs exec` step.
+There is no setup step for the default context and no mutable `cfs use`
+selection.
 
 On the first `cf` invocation in a workspace, `cfs` creates an empty private CF
 home. The official CLI then behaves as it would with any new `CF_HOME`. Future
@@ -134,16 +136,31 @@ one Git repository:
 ~/work/orders-prod -> production context
 ```
 
-This is the recommended way to operate two targets concurrently for one code
-base.
+This remains useful when the worktrees also contain different source changes.
+When only the CF target differs, use named contexts in one worktree.
 
-### 4.5 Inspection
+### 4.5 Named contexts
+
+```console
+$ cfs context create prod
+$ cfs -c prod login --sso -a https://api.example.com
+$ cfs -c prod target -o commerce -s production
+$ cfs -c prod apps
+```
+
+The identity is the exact pair `(workspace, context name)`. Every pair has its
+own `CF_HOME` and lock. `cf ...` is equivalent to selecting `default`; named
+selection applies to one `cfs -c <name> ...` invocation and never changes a
+shared current value. Names must already exist, are case-sensitive, and are not
+created as a side effect of running a CF command.
+
+### 4.6 Inspection
 
 ```console
 $ cfs status
 Workspace: /Users/alice/work/orders
 Source: git-worktree
-Context: 7ce1c83f
+Context: default (7ce1c83f)
 CF CLI: /opt/homebrew/bin/cf
 CF home: /Users/alice/.local/state/cfs/contexts/7ce1c83f.../home
 API endpoint: https://api.example.com
@@ -166,7 +183,9 @@ The initial control interface is deliberately small:
 | --- | --- |
 | `cfs setup` | Locate the official CLI and install the transparent shim. |
 | `cfs status` | Show workspace resolution and the current CF target. |
-| `cfs import` | Copy the global CF context into the current workspace. |
+| `cfs -c <name> <args...>` | Run the official CLI in an existing named context. |
+| `cfs context` | Create, list, inspect, or remove workspace-local contexts. |
+| `cfs import` | Copy the global CF context into the default or a named context. |
 | `cfs doctor` | Validate paths, permissions, CLI compatibility, and state. |
 | `cfs reset` | Move the current workspace state to recoverable trash after confirmation. |
 | `cfs gc` | Report orphaned workspace state; deletion requires `--apply`. |
@@ -176,12 +195,15 @@ The initial control interface is deliberately small:
 
 Global conventions:
 
-- `--json` produces stable JSON for `status`, `doctor`, and `gc`.
+- `--json` produces stable JSON for `status`, `context list`, `context status`,
+  `doctor`, and `gc`.
 - Errors use the form `cfs: <message>`.
 - Interactive prompts are never used when standard input is not a terminal.
 - Destructive commands require an explicit flag in non-interactive mode.
 
-Named session commands are intentionally excluded.
+Context names contain 1–63 lowercase ASCII letters or digits, with dots,
+hyphens, and underscores permitted internally. Unknown or invalid names fail
+closed. Credentials are never copied implicitly.
 
 ## 6. Runtime architecture
 
@@ -222,9 +244,10 @@ For each invocation of `cf <arguments>`:
 2. Resolve the pinned official CF CLI path and reject recursion.
 3. Apply explicit compatibility overrides.
 4. Resolve the current workspace root.
-5. Derive or retrieve the workspace context ID.
+5. Select `default` or validate the explicit context name, then derive the
+   context ID from both workspace identity and name.
 6. Validate and create the private state directory.
-7. Acquire the workspace process lock.
+7. Acquire the selected context's process lock.
 8. Construct the child environment.
 9. Start the official CLI with the original argument vector.
 10. Forward standard input, output, error, terminal behavior, and signals.
@@ -287,9 +310,9 @@ version = 1
 The file contains no credentials or target state and may be committed. The
 nearest marker wins over the Git worktree root.
 
-## 9. Workspace identity
+## 9. Context identity
 
-The initial identity key is derived from:
+The workspace identity key is derived from:
 
 ```text
 SHA-256("cfs:v1" + canonical workspace root + repository fingerprint)
@@ -304,6 +327,11 @@ workspace creates a new context by default. This is a safe failure mode: it may
 require another login, but it cannot silently attach credentials from an
 unrelated directory. A future explicit `cfs rebind` operation may support safe
 migration.
+
+The default context ID remains the workspace ID for backward compatibility. A
+named context uses a domain-separated SHA-256 digest of the workspace ID and
+exact context name. Metadata records both values so renamed or transplanted
+state fails validation.
 
 ## 10. State layout
 
@@ -322,7 +350,6 @@ Logical layout:
   plugins/
     .cf/
       plugins/
-  registry.json
 ```
 
 Default state roots:
@@ -354,8 +381,8 @@ policy after logging out or revoking credentials where appropriate.
 
 ## 11. Plugin policy
 
-By default, installed CF plugins are shared across workspace contexts through a
-single managed `CF_PLUGIN_HOME`. This avoids reinstalling the same plugin in
+By default, installed CF plugins are shared across all managed contexts through
+a single managed `CF_PLUGIN_HOME`. This avoids reinstalling the same plugin in
 every project while keeping API targets and tokens isolated through `CF_HOME`.
 
 If `CF_PLUGIN_HOME` is already set, `cfs` preserves it. A future strict mode may
@@ -367,18 +394,19 @@ as installation of trusted executable code.
 
 ## 12. Concurrency model
 
-Different workspace contexts never share a lock and run concurrently.
+Different `(workspace, context name)` identities never share a lock and run
+concurrently.
 
 The initial implementation uses one exclusive operating-system lock for the
-entire lifetime of each official `cf` process in a workspace. This prevents a
-target change or token write from racing with a long-running operation.
+entire lifetime of each official `cf` process in one context. This prevents a
+target change or token write from racing with a long-running operation while
+allowing other named contexts in the same workspace to proceed.
 
 If the lock cannot be acquired within the configured timeout, `cfs` returns a
 temporary-failure exit code and a non-sensitive error:
 
 ```text
-cfs: this workspace already has an active CF command
-Hint: wait for the command to finish or use a separate Git worktree.
+cfs: context "prod" already has an active CF command
 ```
 
 The lock record may contain a PID and start time, but never the complete command
@@ -434,6 +462,7 @@ Failures must be deterministic and actionable:
 | No workspace | Refuse global fallback and explain how to set a root. |
 | Official CLI missing | Fail with the configured path and setup instruction. |
 | Context permission error | Fail before starting the official CLI. |
+| Unknown or invalid context name | Fail without creating state or falling back. |
 | Workspace busy | Return a temporary failure without exposing arguments. |
 | Corrupt `cfs` metadata | Preserve CF state and request `cfs doctor`. |
 | Existing workspace target | Refuse import unless `--force` is explicit. |
@@ -452,6 +481,7 @@ internal/
   app/                 control commands and shim dispatch
   cfhome/              opaque CF configuration import
   config/              global configuration
+  contextname/         portable context-name validation
   workspace/           root discovery and identity
   store/               paths, metadata, and permissions
   lock/                platform-specific process locks
@@ -473,9 +503,10 @@ The first usable release includes:
 - Git worktree and `.cfs.toml` workspace detection.
 - Isolated persistent `CF_HOME` directories.
 - Shared `CF_PLUGIN_HOME`.
-- Per-workspace exclusive locking.
-- `setup`, `status`, `import`, `doctor`, `reset`, `gc`, `uninstall`, and
-  `version`.
+- Per-context exclusive locking.
+- Workspace-local named contexts with explicit per-command selection.
+- `setup`, `status`, `context`, `import`, `doctor`, `reset`, `gc`, `uninstall`,
+  and `version`.
 - Human-readable English output and stable JSON diagnostics.
 - Linux and macOS support on amd64 and arm64.
 - Automated tests against supported official CF CLI versions.
@@ -508,6 +539,10 @@ The MVP is complete only when all of the following are demonstrated:
     user state.
 11. Import requires explicit confirmation, never prints credentials, and cannot
     replace an active workspace target without `--force`.
+12. Two named contexts in one workspace can use different targets concurrently,
+    while two commands in the same named context remain serialized.
+13. Unknown or malformed context names cannot create state or fall back to the
+    default or global CF home.
 
 The automated coverage for these criteria is documented in
 [testing.md](testing.md).
@@ -524,5 +559,5 @@ already owned by the official CLI.
 
 The durable product contract is therefore:
 
-> Run normal `cf` commands. `cfs` automatically confines their state to the
-> current workspace.
+> Run normal `cf` commands for the workspace default. Use `cfs -c <name>` only
+> when the same workspace needs another isolated target.

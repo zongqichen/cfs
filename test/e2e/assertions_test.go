@@ -171,6 +171,25 @@ func assertGCAction(t *testing.T, raw, action string) {
 	t.Fatalf("gc output is missing action %s", action)
 }
 
+func assertContextNames(t *testing.T, raw string, expected []string) {
+	t.Helper()
+	var value struct {
+		Contexts []struct {
+			Name string `json:"name"`
+		} `json:"contexts"`
+	}
+	if err := json.Unmarshal([]byte(raw), &value); err != nil {
+		t.Fatalf("parse context list: %v", err)
+	}
+	actual := make([]string, 0, len(value.Contexts))
+	for _, context := range value.Contexts {
+		actual = append(actual, context.Name)
+	}
+	if !slices.Equal(actual, expected) {
+		t.Fatalf("context names = %v, want %v", actual, expected)
+	}
+}
+
 func assertRedactedStatus(t *testing.T, raw string, forbidden []string) {
 	t.Helper()
 	assertJSONField(t, raw, "redacted", true)

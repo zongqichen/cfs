@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zongqichen/cfs/internal/config"
+	"github.com/zongqichen/cfs/internal/contextname"
 	"github.com/zongqichen/cfs/internal/envvar"
 	"github.com/zongqichen/cfs/internal/lock"
 	"github.com/zongqichen/cfs/internal/pathutil"
@@ -18,6 +19,8 @@ import (
 
 const defaultLockTimeout = 3 * time.Second
 
+var errContextNotFound = errors.New("context not found")
+
 type managedContext struct {
 	Workspace workspace.Workspace
 	Context   store.Context
@@ -25,6 +28,10 @@ type managedContext struct {
 }
 
 func resolveManagedContext(cfg config.Config) (managedContext, error) {
+	return resolveManagedContextForName(cfg, contextname.Default)
+}
+
+func resolveManagedContextForName(cfg config.Config, name string) (managedContext, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return managedContext{}, fmt.Errorf("resolve current directory: %w", err)
@@ -33,7 +40,7 @@ func resolveManagedContext(cfg config.Config) (managedContext, error) {
 	if err != nil {
 		return managedContext{}, err
 	}
-	return resolveManagedContextFromWorkspace(cfg, ws)
+	return resolveManagedContextFromWorkspaceAndName(cfg, ws, name)
 }
 
 func reportWorkspaceError(options Options, err error) {
@@ -46,12 +53,16 @@ func reportWorkspaceError(options Options, err error) {
 }
 
 func resolveManagedContextFromWorkspace(cfg config.Config, ws workspace.Workspace) (managedContext, error) {
+	return resolveManagedContextFromWorkspaceAndName(cfg, ws, contextname.Default)
+}
+
+func resolveManagedContextFromWorkspaceAndName(cfg config.Config, ws workspace.Workspace, name string) (managedContext, error) {
 	stateRoot, err := config.StateRoot(cfg)
 	if err != nil {
 		return managedContext{}, err
 	}
 	stateStore := store.New(stateRoot)
-	ctx, err := stateStore.ContextFor(ws)
+	ctx, err := stateStore.ContextForName(ws, name)
 	if err != nil {
 		return managedContext{}, err
 	}
@@ -70,6 +81,36 @@ func (managed managedContext) activate(timeout time.Duration) (*lock.Lock, error
 		return nil, errors.Join(err, workspaceLock.Release())
 	}
 	return workspaceLock, nil
+}
+
+func (managed managedContext) activateSelected(timeout time.Duration) (*lock.Lock, error) {
+	if managed.Context.Name == contextname.Default {
+		return managed.activate(timeout)
+	}
+	return managed.activateExisting(timeout)
+}
+
+func (managed managedContext) activateExisting(timeout time.Duration) (*lock.Lock, error) {
+	if _, err := managed.Store.ValidateForWorkspace(managed.Context, managed.Workspace); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("%w: %s", errContextNotFound, managed.Context.Name)
+		}
+		return nil, err
+	}
+	if err := managed.Store.PrepareRoot(); err != nil {
+		return nil, err
+	}
+	contextLock, err := lock.Acquire(managed.Context.LockPath, timeout)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := managed.Store.ValidateForWorkspace(managed.Context, managed.Workspace); err != nil {
+		return nil, errors.Join(err, contextLock.Release())
+	}
+	if err := managed.Store.Ensure(managed.Context, managed.Workspace); err != nil {
+		return nil, errors.Join(err, contextLock.Release())
+	}
+	return contextLock, nil
 }
 
 func (managed managedContext) environment(base []string) []string {
