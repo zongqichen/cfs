@@ -11,7 +11,10 @@ import (
 	"github.com/zongqichen/cfs/internal/envvar"
 )
 
-const shortContextIDLength = 8
+const (
+	shortContextIDLength   = 8
+	trashCredentialWarning = "Warning: trashed CF state may contain active credentials and is not purged automatically."
+)
 
 type commandHandler func(Options, []string) int
 
@@ -36,8 +39,8 @@ func allCommands() []commandSpec {
 		{
 			name:     "status",
 			summary:  "Show workspace resolution and the current CF target",
-			usage:    "cfs status [--json]",
-			examples: "  cfs status\n  cfs status --json",
+			usage:    "cfs status [--json] [--redact]",
+			examples: "  cfs status\n  cfs status --json --redact",
 			run:      commandStatus,
 		},
 		{

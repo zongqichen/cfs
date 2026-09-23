@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -16,6 +17,7 @@ const (
 	CurrentVersion  = 1
 	applicationName = "cfs"
 	configFileName  = "config.json"
+	configReadLimit = 64 * 1024
 )
 
 var ErrNotConfigured = errors.New("cfs is not configured")
@@ -104,7 +106,14 @@ func validateStateRoot(root string) (string, error) {
 	if temporary := filepath.Clean(os.TempDir()); clean == temporary {
 		return "", fmt.Errorf("refusing to use the shared temporary directory as cfs state directory: %s", clean)
 	}
-	return clean, nil
+	if err := securefs.RejectSymlink(clean); err != nil {
+		return "", fmt.Errorf("refusing unsafe cfs state directory: %w", err)
+	}
+	canonical, err := securefs.CanonicalPath(clean)
+	if err != nil {
+		return "", fmt.Errorf("resolve cfs state directory: %w", err)
+	}
+	return canonical, nil
 }
 
 func DefaultShimDir() (string, error) {
@@ -125,12 +134,23 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
-	raw, err := os.ReadFile(path)
+	file, err := securefs.OpenPrivateFile(path, os.O_RDONLY)
 	if errors.Is(err, os.ErrNotExist) {
 		return Config{}, ErrNotConfigured
 	}
 	if err != nil {
-		return Config{}, fmt.Errorf("read configuration: %w", err)
+		return Config{}, fmt.Errorf("open configuration: %w", err)
+	}
+	raw, readErr := io.ReadAll(io.LimitReader(file, configReadLimit+1))
+	closeErr := file.Close()
+	if readErr != nil {
+		return Config{}, errors.Join(fmt.Errorf("read configuration: %w", readErr), closeErr)
+	}
+	if closeErr != nil {
+		return Config{}, fmt.Errorf("close configuration: %w", closeErr)
+	}
+	if len(raw) > configReadLimit {
+		return Config{}, fmt.Errorf("configuration exceeds %d bytes", configReadLimit)
 	}
 
 	var cfg Config

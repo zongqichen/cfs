@@ -145,7 +145,9 @@ Space: development
 `cfs status` obtains target information by invoking the official `cf target`
 inside the resolved home. It must not parse, print, or log tokens.
 
-Machine-readable output is available through `cfs status --json`.
+Machine-readable output is available through `cfs status --json`. Add
+`--redact` to omit local paths and the raw `cf target` response from agent logs
+or other shared output. The internal target probe removes `CF_TRACE`.
 
 ## 5. Command surface
 
@@ -331,6 +333,15 @@ Security requirements:
 
 The official CF CLI owns the contents of `home/.cf`. `cfs` treats that
 directory as opaque and does not modify or merge `config.json`.
+
+### 10.1 Retention and deletion
+
+`reset` and `gc --apply` move complete context directories to recoverable
+trash. Because an official CF CLI home can contain access and refresh tokens,
+trash is credential-bearing state. `cfs` does not purge it automatically, does
+not revoke credentials, and does not promise secure erasure. Users explicitly
+remove selected trash entries according to their local retention and backup
+policy after logging out or revoking credentials where appropriate.
 
 ## 11. Plugin policy
 

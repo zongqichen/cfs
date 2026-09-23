@@ -23,13 +23,17 @@ Release only from a clean, reviewed commit on `main` after all of these pass:
 ```console
 $ make check
 $ go test -race ./...
+$ make security
 $ make release-check
 $ make smoke
 ```
 
-`make smoke` uses an installed official CF CLI without credentials. Before a
-release, also perform the opt-in manual acceptance test against a non-production
-Cloud Foundry foundation:
+`make smoke` uses an installed official CF CLI without credentials. If the
+active `cf` command is already the cfs shim, pass the official executable
+explicitly: `CFS_REAL_CF=/absolute/path/to/cf make smoke`.
+
+Before a release, also perform the opt-in manual acceptance test against a
+non-production Cloud Foundry foundation:
 
 1. Log in with `cf login --sso` from a new workspace.
 2. Confirm a fresh shell in that workspace retains the target.
@@ -42,11 +46,17 @@ in release artifacts or CI logs.
 
 ## Release automation
 
-The tag-only GitHub Actions workflow uses GoReleaser v2. It:
+Pushing a tag never publishes a release. A maintainer must manually run the
+GitHub Actions `Release` workflow from `main` and enter an existing semantic
+version tag. The workflow rejects a tag that is not the current `main` commit or
+already has a GitHub Release. Configure required reviewers on the `release` GitHub
+environment when more than one maintainer is available.
 
-1. triggers only for tags matching `v*`;
-2. checks out full history with `fetch-depth: 0`;
-3. reruns tests and the release-build check;
+The manually started workflow uses GoReleaser v2. It:
+
+1. validates that the requested semantic version tag is the current `main` commit;
+2. checks out that tag with full history;
+3. reruns tests, vulnerability and secret scans, and the release-build check;
 4. builds the four supported archives with `CGO_ENABLED=0` and `-trimpath`;
 5. injects version, commit, and build date into `main.version`, `main.commit`, and
    `main.buildDate`;
@@ -54,18 +64,20 @@ The tag-only GitHub Actions workflow uses GoReleaser v2. It:
 7. uses narrowly scoped workflow permissions (`contents: write`, plus
    `id-token: write` and `attestations: write` when attestations are enabled).
 
-All actions are pinned to reviewed commit SHAs. Do not create a release from an
-unreviewed local commit.
+All actions and security tools are pinned to reviewed versions. Do not create a
+release from an unreviewed local commit.
 
 ## Distribution
 
-A semantic version tag makes the command installable through the Go toolchain:
+A semantic version tag makes the command installable through the Go toolchain,
+but does not publish GitHub archives on its own:
 
 ```console
 $ go install github.com/zongqichen/cfs/cmd/cfs@v0.1.0
 ```
 
-After pushing the immutable tag, request it through the public Go proxy:
+After pushing the immutable tag and manually running the Release workflow,
+request it through the public Go proxy:
 
 ```console
 $ GOPROXY=proxy.golang.org go list -m github.com/zongqichen/cfs@v0.1.0
@@ -77,7 +89,9 @@ release exists and its artifact URLs and checksums are stable.
 
 ## Repository controls
 
-- Protect `main` and require the Linux, macOS, and release-build CI jobs.
-- Validate the tag-only release workflow in a dry run before publishing.
+- Protect `main` and require the Linux, macOS, release-build, security, and
+  CodeQL jobs.
+- Run the manual release workflow only from `main` and require the `release`
+  environment's approval gate when repository staffing permits.
 - Describe the early-project support boundary in pre-1.0 release notes.
 - Keep Git tags immutable; publish a new version for every correction.

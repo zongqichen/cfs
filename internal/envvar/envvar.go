@@ -4,6 +4,7 @@ package envvar
 const (
 	CFHome       = "CF_HOME"
 	CFPluginHome = "CF_PLUGIN_HOME"
+	CFTrace      = "CF_TRACE"
 )
 
 // cfs environment variables form part of the public CLI contract.

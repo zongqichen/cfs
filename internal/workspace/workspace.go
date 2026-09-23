@@ -65,6 +65,7 @@ func canonicalDirectory(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// #nosec G703 -- Inspecting a caller-selected workspace root is intentional; it is canonicalized before use.
 	info, err := os.Stat(abs)
 	if err != nil {
 		return "", err
@@ -95,6 +96,7 @@ func findMarkerRoot(start string) (string, bool) {
 }
 
 func validateMarker(path string) error {
+	// #nosec G304 -- The marker belongs to the selected workspace and is read with a strict size and syntax limit.
 	file, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("read workspace marker: %w", err)
@@ -126,6 +128,7 @@ func validateMarker(path string) error {
 }
 
 func gitTopLevel(cwd string) (string, error) {
+	// #nosec G204 -- cwd is canonical and passed as an argv element without a shell.
 	command := exec.Command("git", "-C", cwd, "rev-parse", "--show-toplevel")
 	command.Stderr = nil
 	raw, err := command.Output()
@@ -157,6 +160,7 @@ func identify(root, source string) Workspace {
 }
 
 func repositoryFingerprint(root string) string {
+	// #nosec G204 G702 -- root is canonical and passed as an argv element without a shell.
 	command := exec.Command("git", "-C", root, "rev-parse", "--absolute-git-dir")
 	command.Stderr = nil
 	raw, err := command.Output()

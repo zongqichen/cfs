@@ -52,7 +52,11 @@ func commandGC(options Options, args []string) int {
 
 	results, failed := collectGarbage(entries, stateStore, *apply)
 	if *jsonOutput {
-		if code := writeJSON(options, map[string]any{"contexts": results, "applied": *apply}); code != exitOK {
+		output := map[string]any{"contexts": results, "applied": *apply}
+		if containsGCAction(results, gcTrashed) {
+			output["warning"] = trashCredentialWarning
+		}
+		if code := writeJSON(options, output); code != exitOK {
 			return code
 		}
 	} else {
@@ -104,5 +108,16 @@ func printGCResults(options Options, results []gcEntry, applied bool) {
 	}
 	if !applied {
 		fprintf(options.Stdout, "Run 'cfs gc --apply' to move these contexts to trash.\n")
+	} else if containsGCAction(results, gcTrashed) {
+		fprintf(options.Stdout, "%s\n", trashCredentialWarning)
 	}
+}
+
+func containsGCAction(results []gcEntry, action gcAction) bool {
+	for _, result := range results {
+		if result.Action == action {
+			return true
+		}
+	}
+	return false
 }

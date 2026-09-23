@@ -4,6 +4,7 @@ package app
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,7 +18,7 @@ import (
 
 func TestShimUsesWorkspaceSpecificCFHome(t *testing.T) {
 	fakeCF := writeFakeCF(t)
-	stateRoot := t.TempDir()
+	stateRoot := canonicalTestPath(t, t.TempDir())
 	configureTestEnvironment(t, fakeCF, stateRoot)
 
 	firstRoot := markerWorkspace(t)
@@ -113,7 +114,7 @@ func TestShimPreservesExplicitPluginHome(t *testing.T) {
 
 func TestExplicitWorkspaceRootOverridesInheritedCFHome(t *testing.T) {
 	fakeCF := writeFakeCF(t)
-	stateRoot := t.TempDir()
+	stateRoot := canonicalTestPath(t, t.TempDir())
 	configureTestEnvironment(t, fakeCF, stateRoot)
 	workspaceRoot := t.TempDir()
 	externalHome := filepath.Join(t.TempDir(), "external")
@@ -143,7 +144,7 @@ func TestShimPropagatesOfficialExitCode(t *testing.T) {
 
 func TestShimRejectsConcurrentCommandInSameWorkspace(t *testing.T) {
 	fakeCF := writeFakeCF(t)
-	stateRoot := t.TempDir()
+	stateRoot := canonicalTestPath(t, t.TempDir())
 	configureTestEnvironment(t, fakeCF, stateRoot)
 	root := markerWorkspace(t)
 
@@ -191,6 +192,113 @@ func TestShimForwardsInteractiveInputAndArguments(t *testing.T) {
 	}
 	if !strings.Contains(result.stdout, "STDIN=temporary-code") {
 		t.Fatalf("stdin was not forwarded: %q", result.stdout)
+	}
+}
+
+func TestShimRejectsForgedActiveContext(t *testing.T) {
+	fakeCF := writeFakeCF(t)
+	configureTestEnvironment(t, fakeCF, t.TempDir())
+	t.Setenv("CFS_ACTIVE_CONTEXT", "forged")
+
+	result := runFromDirectory(t, t.TempDir(), []string{"cf", "version"})
+	if result.code != exitUnavailable {
+		t.Fatalf("exit code = %d, want %d; stdout = %q; stderr = %q", result.code, exitUnavailable, result.stdout, result.stderr)
+	}
+	if !strings.Contains(result.stderr, "refusing invalid active context") {
+		t.Fatalf("stderr = %q", result.stderr)
+	}
+	if result.stdout != "" {
+		t.Fatalf("official CLI unexpectedly ran: %q", result.stdout)
+	}
+}
+
+func TestShimAcceptsValidatedActiveContext(t *testing.T) {
+	fakeCF := writeFakeCF(t)
+	configureTestEnvironment(t, fakeCF, t.TempDir())
+	root := markerWorkspace(t)
+	first := runFromDirectory(t, root, []string{"cf", "apps"})
+	if first.code != exitOK {
+		t.Fatalf("create workspace state: %#v", first)
+	}
+	home := outputValue(first.stdout, "CF_HOME")
+	id := filepath.Base(filepath.Dir(home))
+	t.Setenv("CFS_ACTIVE_CONTEXT", id)
+	t.Setenv("CF_HOME", home)
+	t.Setenv("CFS_WORKSPACE_ROOT", root)
+
+	result := runFromDirectory(t, t.TempDir(), []string{"cf", "apps"})
+	if result.code != exitOK {
+		t.Fatalf("exit code = %d; stderr = %q", result.code, result.stderr)
+	}
+	if got := outputValue(result.stdout, "CF_HOME"); got != home {
+		t.Fatalf("CF_HOME = %q, want %q", got, home)
+	}
+}
+
+func TestShimRejectsActiveContextWithMismatchedHome(t *testing.T) {
+	fakeCF := writeFakeCF(t)
+	configureTestEnvironment(t, fakeCF, t.TempDir())
+	root := markerWorkspace(t)
+	first := runFromDirectory(t, root, []string{"cf", "apps"})
+	if first.code != exitOK {
+		t.Fatalf("create workspace state: %#v", first)
+	}
+	home := outputValue(first.stdout, "CF_HOME")
+	t.Setenv("CFS_ACTIVE_CONTEXT", filepath.Base(filepath.Dir(home)))
+	t.Setenv("CF_HOME", filepath.Join(t.TempDir(), "other-home"))
+	t.Setenv("CFS_WORKSPACE_ROOT", root)
+
+	result := runFromDirectory(t, t.TempDir(), []string{"cf", "apps"})
+	if result.code != exitUnavailable {
+		t.Fatalf("exit code = %d, want %d; stdout = %q; stderr = %q", result.code, exitUnavailable, result.stdout, result.stderr)
+	}
+	if result.stdout != "" {
+		t.Fatalf("official CLI unexpectedly ran: %q", result.stdout)
+	}
+}
+
+func TestStatusRedactsOperationalMetadataAndDisablesCFTrace(t *testing.T) {
+	fakeCF := writeFakeCF(t)
+	stateRoot := canonicalTestPath(t, t.TempDir())
+	configureTestEnvironment(t, fakeCF, stateRoot)
+	root := markerWorkspace(t)
+	t.Setenv("CFS_WORKSPACE_ROOT", root)
+	t.Setenv("CF_TRACE", "/private/trace-output")
+
+	result := runFromDirectory(t, root, []string{"cfs", "status", "--json", "--redact"})
+	if result.code != exitOK {
+		t.Fatalf("exit code = %d; stderr = %q", result.code, result.stderr)
+	}
+	var output map[string]any
+	if err := json.Unmarshal([]byte(result.stdout), &output); err != nil {
+		t.Fatalf("decode status: %v: %s", err, result.stdout)
+	}
+	for _, field := range []string{"workspace", "official_cf", "cf_home", "target_output"} {
+		if _, exists := output[field]; exists {
+			t.Fatalf("redacted status contains %q: %s", field, result.stdout)
+		}
+	}
+	if redacted, _ := output["redacted"].(bool); !redacted {
+		t.Fatalf("status is not marked as redacted: %s", result.stdout)
+	}
+	if strings.Contains(result.stdout, "/private/trace-output") {
+		t.Fatalf("redacted status contains CF_TRACE: %s", result.stdout)
+	}
+}
+
+func TestStatusProbeDisablesCFTrace(t *testing.T) {
+	fakeCF := writeFakeCF(t)
+	configureTestEnvironment(t, fakeCF, t.TempDir())
+	root := markerWorkspace(t)
+	t.Setenv("CFS_WORKSPACE_ROOT", root)
+	t.Setenv("CF_TRACE", "sensitive-trace-setting")
+
+	result := runFromDirectory(t, root, []string{"cfs", "status", "--json"})
+	if result.code != exitOK {
+		t.Fatalf("exit code = %d; stderr = %q", result.code, result.stderr)
+	}
+	if strings.Contains(result.stdout, "sensitive-trace-setting") {
+		t.Fatalf("status inherited CF_TRACE: %s", result.stdout)
 	}
 }
 
@@ -295,6 +403,7 @@ func writeFakeCF(t *testing.T) string {
 	script := `#!/bin/sh
 printf 'CF_HOME=%s\n' "$CF_HOME"
 printf 'CF_PLUGIN_HOME=%s\n' "$CF_PLUGIN_HOME"
+printf 'CF_TRACE=%s\n' "$CF_TRACE"
 printf 'ARGS=%s\n' "$*"
 if [ "$1" = "exit-42" ]; then
   exit 42
@@ -317,4 +426,13 @@ func outputValue(output, key string) string {
 		}
 	}
 	return ""
+}
+
+func canonicalTestPath(t *testing.T, path string) string {
+	t.Helper()
+	canonical, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return canonical
 }

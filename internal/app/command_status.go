@@ -15,15 +15,17 @@ type statusOutput struct {
 	Workspace      string `json:"workspace,omitempty"`
 	Source         string `json:"source"`
 	Context        string `json:"context,omitempty"`
-	OfficialCF     string `json:"official_cf"`
-	CFHome         string `json:"cf_home"`
-	TargetOutput   string `json:"target_output"`
+	OfficialCF     string `json:"official_cf,omitempty"`
+	CFHome         string `json:"cf_home,omitempty"`
+	TargetOutput   string `json:"target_output,omitempty"`
 	TargetExitCode int    `json:"target_exit_code"`
+	Redacted       bool   `json:"redacted,omitempty"`
 }
 
 func commandStatus(options Options, args []string) int {
 	flags := newFlagSet("status", options.Stderr)
 	jsonOutput := flags.Bool("json", false, "print JSON output")
+	redact := flags.Bool("redact", false, "omit paths and CF target details")
 	if code, ok := parseFlagSet(flags, args); !ok {
 		return code
 	}
@@ -41,7 +43,7 @@ func commandStatus(options Options, args []string) int {
 		return exitUnavailable
 	}
 
-	status := statusOutput{OfficialCF: cfg.RealCFPath}
+	status := statusOutput{OfficialCF: cfg.RealCFPath, Redacted: *redact}
 	env := os.Environ()
 	if home, external := externalCFHome(); external {
 		status.Mode = "external"
@@ -75,6 +77,7 @@ func commandStatus(options Options, args []string) int {
 
 	var targetStdout bytes.Buffer
 	var targetStderr bytes.Buffer
+	env = runner.WithoutEnv(env, envvar.CFTrace)
 	result, runErr := runner.Run(cfg.RealCFPath, []string{"target"}, env, runner.IO{
 		Stdin: options.Stdin, Stdout: &targetStdout, Stderr: &targetStderr,
 	})
@@ -83,7 +86,13 @@ func commandStatus(options Options, args []string) int {
 		return exitUnavailable
 	}
 	status.TargetExitCode = result.ExitCode
-	status.TargetOutput = joinNonEmpty(targetStdout.String(), targetStderr.String())
+	if *redact {
+		status.Workspace = ""
+		status.OfficialCF = ""
+		status.CFHome = ""
+	} else {
+		status.TargetOutput = joinNonEmpty(targetStdout.String(), targetStderr.String())
+	}
 
 	if *jsonOutput {
 		return writeJSON(options, status)
@@ -95,6 +104,11 @@ func commandStatus(options Options, args []string) int {
 	fprintf(options.Stdout, "Source: %s\n", status.Source)
 	if status.Context != "" {
 		fprintf(options.Stdout, "Context: %s\n", status.Context)
+	}
+	if *redact {
+		fprintf(options.Stdout, "CF target exit code: %d\n", status.TargetExitCode)
+		fprintf(options.Stdout, "Details: redacted\n")
+		return result.ExitCode
 	}
 	fprintf(options.Stdout, "CF CLI: %s\n", status.OfficialCF)
 	fprintf(options.Stdout, "CF home: %s\n", status.CFHome)
