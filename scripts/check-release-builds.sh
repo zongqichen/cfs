@@ -13,10 +13,14 @@ version=0.0.0-test
 commit=release-check
 build_date=2026-01-01T00:00:00Z
 
-for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
   goos=${target%/*}
   goarch=${target#*/}
-  destination="$output_root/$goos-$goarch/cfs"
+  extension=
+  if [ "$goos" = windows ]; then
+    extension=.exe
+  fi
+  destination="$output_root/$goos-$goarch/cfs$extension"
   mkdir -p "$(dirname -- "$destination")"
   (
     cd "$repo_root"
@@ -35,5 +39,5 @@ printf '%s\n' "$version_output" | grep -F "cfs $version" >/dev/null
 printf '%s\n' "$version_output" | grep -F "commit $commit" >/dev/null
 printf '%s\n' "$version_output" | grep -F "built $build_date" >/dev/null
 
-printf 'PASS: release binaries build for Linux and macOS on amd64 and arm64\n'
+printf 'PASS: release binaries build for Linux and macOS on amd64 and arm64, plus Windows on amd64\n'
 printf 'PASS: release metadata is embedded in the native binary\n'
