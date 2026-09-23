@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -55,6 +56,65 @@ func TestWriteJSONAtomicReplacesFileWithoutTemporaryFiles(t *testing.T) {
 		t.Fatal(err)
 	} else if len(matches) != 0 {
 		t.Fatalf("temporary files remain: %v", matches)
+	}
+}
+
+func TestEnsureDirectoryRejectsSymbolicLink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symbolic-link creation requires additional privileges on Windows")
+	}
+	target := t.TempDir()
+	if err := os.Chmod(target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "state")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := EnsureDirectory(link); err == nil {
+		t.Fatal("EnsureDirectory() error = nil, want symbolic-link rejection")
+	}
+	assertPermissions(t, target, 0o755)
+}
+
+func TestOpenPrivateFileRejectsSymbolicLink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symbolic-link creation requires additional privileges on Windows")
+	}
+	target := filepath.Join(t.TempDir(), "target")
+	if err := os.WriteFile(target, []byte("preserve"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "lock")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := OpenPrivateFile(link, os.O_RDWR); err == nil {
+		t.Fatal("OpenPrivateFile() error = nil, want symbolic-link rejection")
+	}
+	raw, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != "preserve" {
+		t.Fatalf("target contents = %q", raw)
+	}
+	assertPermissions(t, target, 0o644)
+}
+
+func TestValidateDirectoryRejectsBroadPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix permission bits are not authoritative on Windows")
+	}
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ValidateDirectory(directory); err == nil {
+		t.Fatal("ValidateDirectory() error = nil, want broad-permission rejection")
 	}
 }
 

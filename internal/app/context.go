@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/zongqichen/cfs/internal/config"
@@ -75,6 +76,39 @@ func (managed managedContext) environment(base []string) []string {
 func externalCFHome() (string, bool) {
 	home := os.Getenv(envvar.CFHome)
 	return home, home != "" && os.Getenv(envvar.WorkspaceRoot) == ""
+}
+
+func activeManagedEnvironment(cfg config.Config) (bool, error) {
+	id := os.Getenv(envvar.ActiveContext)
+	if id == "" {
+		return false, nil
+	}
+	home := os.Getenv(envvar.CFHome)
+	if home == "" {
+		return false, fmt.Errorf("%s is set without %s", envvar.ActiveContext, envvar.CFHome)
+	}
+
+	stateRoot, err := config.StateRoot(cfg)
+	if err != nil {
+		return false, err
+	}
+	stateStore := store.New(stateRoot)
+	ctx, err := stateStore.Context(id)
+	if err != nil {
+		return false, err
+	}
+	actualHome, err := filepath.Abs(home)
+	if err != nil {
+		return false, fmt.Errorf("resolve active %s: %w", envvar.CFHome, err)
+	}
+	if filepath.Clean(actualHome) != filepath.Clean(ctx.CFHome) {
+		return false, fmt.Errorf("%s does not match %s", envvar.ActiveContext, envvar.CFHome)
+	}
+	_, err = stateStore.ValidateContext(ctx)
+	if err != nil {
+		return false, fmt.Errorf("validate active context: %w", err)
+	}
+	return true, nil
 }
 
 func lockTimeout() (time.Duration, error) {

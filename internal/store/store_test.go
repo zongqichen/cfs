@@ -3,6 +3,7 @@ package store
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -92,5 +93,73 @@ func TestMoveToTrashIsRecoverable(t *testing.T) {
 	}
 	if _, err := os.Stat(ctx.Dir); !os.IsNotExist(err) {
 		t.Fatalf("original context still exists: %v", err)
+	}
+}
+
+func TestPrepareRejectsLinkedContextsDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symbolic-link creation requires additional privileges on Windows")
+	}
+	root := t.TempDir()
+	target := t.TempDir()
+	if err := os.Chmod(target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(root, contextsDirectory)); err != nil {
+		t.Fatal(err)
+	}
+	s := New(root)
+	ctx, err := s.Context("dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.Prepare(ctx); err == nil {
+		t.Fatal("Prepare() error = nil, want symbolic-link rejection")
+	}
+	info, err := os.Stat(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o755 {
+		t.Fatalf("target permissions = %o, want 755", info.Mode().Perm())
+	}
+	if entries, err := os.ReadDir(target); err != nil {
+		t.Fatal(err)
+	} else if len(entries) != 0 {
+		t.Fatalf("linked target was modified: %v", entries)
+	}
+}
+
+func TestReadMetadataRejectsSymbolicLink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symbolic-link creation requires additional privileges on Windows")
+	}
+	root := t.TempDir()
+	s := New(root)
+	ctx, err := s.Context("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Prepare(ctx); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(t.TempDir(), "metadata.json")
+	if err := os.WriteFile(target, []byte(`{"version":1}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, ctx.MetadataPath); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := s.ReadMetadata(ctx); err == nil {
+		t.Fatal("ReadMetadata() error = nil, want symbolic-link rejection")
+	}
+	info, err := os.Stat(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o644 {
+		t.Fatalf("target permissions = %o, want 644", info.Mode().Perm())
 	}
 }

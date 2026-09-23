@@ -63,8 +63,16 @@ func runShim(options Options, args []string) int {
 		return exitUnavailable
 	}
 
+	if envTrue(envvar.Disable) {
+		return invokeOfficial(options, cfg.RealCFPath, args, os.Environ())
+	}
+	active, err := activeManagedEnvironment(cfg)
+	if err != nil {
+		fprintf(options.Stderr, "cfs: refusing invalid active context: %v\n", err)
+		return exitUnavailable
+	}
 	_, hasExternalCFHome := externalCFHome()
-	if envTrue(envvar.Disable) || os.Getenv(envvar.ActiveContext) != "" || hasExternalCFHome {
+	if active || hasExternalCFHome {
 		return invokeOfficial(options, cfg.RealCFPath, args, os.Environ())
 	}
 

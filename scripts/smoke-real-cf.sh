@@ -2,7 +2,7 @@
 set -eu
 
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-real_cf=$(command -v cf)
+real_cf=${CFS_REAL_CF:-$(command -v cf)}
 test_root=$(mktemp -d "${TMPDIR:-/tmp}/cfs-real-smoke.XXXXXX")
 project_a=$(mktemp -d "${TMPDIR:-/tmp}/cfs-project-a.XXXXXX")
 project_b=$(mktemp -d "${TMPDIR:-/tmp}/cfs-project-b.XXXXXX")

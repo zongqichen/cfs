@@ -1,5 +1,8 @@
 name: CI
 
+env:
+  GO_VERSION: "1.27.1"
+
 on:
   push:
     branches: [main]
@@ -15,10 +18,10 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "1.22.x"
+          go-version: ${{ env.GO_VERSION }}
           cache: false
       - name: Check formatting
         run: test -z "$(gofmt -l .)"
@@ -32,10 +35,23 @@ jobs:
   release-builds:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "1.22.x"
+          go-version: ${{ env.GO_VERSION }}
           cache: false
       - name: Check release builds
         run: make release-check
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      - name: Check vulnerabilities and secrets
+        run: make security

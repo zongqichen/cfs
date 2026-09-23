@@ -20,3 +20,16 @@ func TestReplaceEnvReplacesAndAddsValues(t *testing.T) {
 		t.Fatalf("ReplaceEnv() retained old value: %v", got)
 	}
 }
+
+func TestWithoutEnvRemovesOnlyNamedValues(t *testing.T) {
+	got := WithoutEnv([]string{"CF_TRACE=/private/trace", "CF_HOME=/keep", "FLAG"}, "CF_TRACE")
+	joined := strings.Join(got, "\n")
+	if strings.Contains(joined, "CF_TRACE") {
+		t.Fatalf("WithoutEnv() retained CF_TRACE: %v", got)
+	}
+	for _, expected := range []string{"CF_HOME=/keep", "FLAG"} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("WithoutEnv() = %v, missing %q", got, expected)
+		}
+	}
+}

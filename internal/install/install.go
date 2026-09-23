@@ -54,7 +54,7 @@ func Setup(options SetupOptions) (SetupResult, error) {
 
 	stateDir := options.StateDir
 	if stateDir != "" {
-		stateDir, err = filepath.Abs(stateDir)
+		stateDir, err = config.StateRoot(config.Config{StateDir: stateDir})
 		if err != nil {
 			return SetupResult{}, fmt.Errorf("resolve state directory: %w", err)
 		}

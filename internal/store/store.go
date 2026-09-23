@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -25,6 +26,7 @@ const (
 	metadataFileName     = "metadata.json"
 	lockFileSuffix       = ".lock"
 	trashTimestampLayout = "20060102T150405.000000000Z"
+	metadataReadLimit    = 64 * 1024
 )
 
 type Store struct {
@@ -61,15 +63,19 @@ func New(root string) Store {
 }
 
 func (s Store) ContextFor(ws workspace.Workspace) (Context, error) {
-	if !validID(ws.ID) {
-		return Context{}, errors.New("workspace returned an invalid context ID")
+	return s.Context(ws.ID)
+}
+
+func (s Store) Context(id string) (Context, error) {
+	if !validID(id) {
+		return Context{}, errors.New("invalid context ID")
 	}
-	contextDir := filepath.Join(s.Root, contextsDirectory, ws.ID)
+	contextDir := filepath.Join(s.Root, contextsDirectory, id)
 	return Context{
-		ID:           ws.ID,
+		ID:           id,
 		Dir:          contextDir,
 		CFHome:       filepath.Join(contextDir, contextHomeDirectory),
-		LockPath:     filepath.Join(s.Root, locksDirectory, ws.ID+lockFileSuffix),
+		LockPath:     filepath.Join(s.Root, locksDirectory, id+lockFileSuffix),
 		MetadataPath: filepath.Join(contextDir, metadataFileName),
 	}, nil
 }
@@ -113,9 +119,20 @@ func (s Store) Ensure(ctx Context, ws workspace.Workspace) error {
 }
 
 func (s Store) ReadMetadata(ctx Context) (Metadata, error) {
-	raw, err := os.ReadFile(ctx.MetadataPath)
+	file, err := securefs.OpenPrivateFile(ctx.MetadataPath, os.O_RDONLY)
 	if err != nil {
 		return Metadata{}, err
+	}
+	raw, readErr := io.ReadAll(io.LimitReader(file, metadataReadLimit+1))
+	closeErr := file.Close()
+	if readErr != nil {
+		return Metadata{}, fmt.Errorf("read %s: %w", ctx.MetadataPath, readErr)
+	}
+	if closeErr != nil {
+		return Metadata{}, fmt.Errorf("close %s: %w", ctx.MetadataPath, closeErr)
+	}
+	if len(raw) > metadataReadLimit {
+		return Metadata{}, fmt.Errorf("metadata exceeds %d bytes: %s", metadataReadLimit, ctx.MetadataPath)
 	}
 	var metadata Metadata
 	if err := json.Unmarshal(raw, &metadata); err != nil {
@@ -124,7 +141,17 @@ func (s Store) ReadMetadata(ctx Context) (Metadata, error) {
 	if metadata.Version != metadataVersion {
 		return Metadata{}, fmt.Errorf("unsupported metadata version %d", metadata.Version)
 	}
+	if metadata.ContextID != ctx.ID {
+		return Metadata{}, errors.New("context metadata does not match its directory")
+	}
 	return metadata, nil
+}
+
+func (s Store) ValidateContext(ctx Context) (Metadata, error) {
+	if err := s.validateContextDirectories(ctx); err != nil {
+		return Metadata{}, err
+	}
+	return s.ReadMetadata(ctx)
 }
 
 func (s Store) SharedPluginHome() string {
@@ -133,10 +160,18 @@ func (s Store) SharedPluginHome() string {
 
 func (s Store) List() ([]Entry, error) {
 	root := filepath.Join(s.Root, contextsDirectory)
-	directories, err := os.ReadDir(root)
-	if errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Lstat(root); errors.Is(err, os.ErrNotExist) {
 		return nil, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("inspect contexts: %w", err)
 	}
+	if err := securefs.ValidateDirectory(s.Root); err != nil {
+		return nil, err
+	}
+	if err := securefs.ValidateDirectory(root); err != nil {
+		return nil, err
+	}
+	directories, err := os.ReadDir(root)
 	if err != nil {
 		return nil, fmt.Errorf("list contexts: %w", err)
 	}
@@ -146,12 +181,9 @@ func (s Store) List() ([]Entry, error) {
 		if !directory.IsDir() || !validID(directory.Name()) {
 			continue
 		}
-		ctx := Context{
-			ID:           directory.Name(),
-			Dir:          filepath.Join(root, directory.Name()),
-			CFHome:       filepath.Join(root, directory.Name(), contextHomeDirectory),
-			LockPath:     filepath.Join(s.Root, locksDirectory, directory.Name()+lockFileSuffix),
-			MetadataPath: filepath.Join(root, directory.Name(), metadataFileName),
+		ctx, err := s.Context(directory.Name())
+		if err != nil {
+			continue
 		}
 		metadata, err := s.ReadMetadata(ctx)
 		if err != nil {
@@ -172,6 +204,9 @@ func (s Store) List() ([]Entry, error) {
 }
 
 func (s Store) MoveToTrash(ctx Context) (string, error) {
+	if err := s.validateContextDirectories(ctx); err != nil {
+		return "", err
+	}
 	trashRoot := filepath.Join(s.Root, trashDirectory)
 	if err := securefs.EnsureDirectory(trashRoot); err != nil {
 		return "", err
@@ -182,6 +217,22 @@ func (s Store) MoveToTrash(ctx Context) (string, error) {
 		return "", fmt.Errorf("move context to trash: %w", err)
 	}
 	return destination, nil
+}
+
+func (s Store) validateContextDirectories(ctx Context) error {
+	expected, err := s.Context(ctx.ID)
+	if err != nil {
+		return err
+	}
+	if ctx != expected {
+		return errors.New("context paths do not match the state root")
+	}
+	for _, directory := range []string{s.Root, filepath.Join(s.Root, contextsDirectory), ctx.Dir, ctx.CFHome} {
+		if err := securefs.ValidateDirectory(directory); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s Store) now() time.Time {

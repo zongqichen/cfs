@@ -35,7 +35,7 @@ command.
 
 ## Install
 
-Requirements: Go 1.22+, the [official Cloud Foundry CLI](https://github.com/cloudfoundry/cli),
+Requirements: Go 1.26.8+, the [official Cloud Foundry CLI](https://github.com/cloudfoundry/cli),
 and Linux or macOS.
 
 ```console
@@ -91,7 +91,10 @@ agent-specific session API is required.
 
 The agent must inherit the shim `PATH` and have network access to the CF API. A
 one-time `command -v cf` check inside the agent should resolve to the `cfs` shim.
-Use `cfs status --json` and `cfs doctor --json` for machine-readable checks.
+Use `cfs status --json --redact` and `cfs doctor --json` for machine-readable
+checks that are safe to attach to routine agent logs. Unredacted `cfs status`
+output can contain local paths, a user name, API endpoint, organization, and
+space; it never intentionally includes tokens.
 
 ## Workspace boundaries
 
@@ -122,6 +125,12 @@ cfs version     Print version information
 cfs help [command]  Show global or command-specific help
 ```
 
+`cfs reset` and `cfs gc --apply` move state to recoverable trash. That state can
+still contain active CF access and refresh tokens. `cfs` retains trash
+indefinitely and does not revoke or securely erase credentials; log out or
+revoke credentials before reset when that distinction matters, then remove the
+specific trash entries according to your local retention policy.
+
 `cfs` delegates login, token refresh, API calls, and plugins to the official CF
 CLI. It does not parse credentials, and it fails closed outside a workspace
 instead of falling back to `$HOME/.cf`. Set `CFS_DISABLE=1` for an explicit
@@ -131,6 +140,7 @@ one-command bypass. No telemetry is collected.
 
 ```console
 $ make check
+$ make security
 $ make release-check
 $ make smoke
 ```

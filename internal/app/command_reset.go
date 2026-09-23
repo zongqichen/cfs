@@ -71,6 +71,7 @@ func commandReset(options Options, args []string) int {
 		return exitError
 	}
 	fprintf(options.Stdout, "Moved workspace state to %s\n", destination)
+	fprintf(options.Stdout, "%s\n", trashCredentialWarning)
 	return exitOK
 }
 
