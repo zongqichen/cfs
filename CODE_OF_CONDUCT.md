@@ -48,7 +48,7 @@ officially representing the community in public spaces.
 ## Enforcement
 
 Report unacceptable behavior privately through the repository's
-[private report form](https://github.com/zongqichen/cfs/security/advisories/new)
+[private report form](https://github.com/zongqichen/cloud-foundry-cli-contexts/security/advisories/new)
 and prefix the title with `Conduct:`. Reports will be reviewed promptly and
 fairly, and the privacy and security of reporters will be respected.
 
