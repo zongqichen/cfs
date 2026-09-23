@@ -4,6 +4,13 @@
 the test suite on Linux and macOS. `make smoke` runs the official CF
 CLI with isolated local configuration but makes no network requests.
 
+`make agent-smoke` runs a real Codex session in a temporary repository. It
+copies in the cfs Agent Skill, supplies credential-free `cfs` and `cf` fixtures,
+and verifies that Codex discovers the skill, performs redacted inspection, and
+routes the command through the exact named context. It uses the caller's Codex
+authentication and provider configuration, runs with a temporary home and
+workspace, and deletes the fixture repository afterward.
+
 Run the full protocol test with an official CF CLI binary:
 
 ```sh

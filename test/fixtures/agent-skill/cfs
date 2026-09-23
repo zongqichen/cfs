@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+printf '%s\n' "$*" >>"${CFS_AGENT_SMOKE_LOG:?}"
+
+case "$*" in
+  "context list --json")
+    printf '%s\n' '{"contexts":[{"name":"default","context":"11111111","default":true,"created":true},{"name":"qa-blue","context":"22222222","default":false,"created":true}]}'
+    ;;
+  "context status qa-blue --json --redact")
+    printf '%s\n' '{"mode":"managed","source":"git-worktree","context":"22222222","context_name":"qa-blue","target_exit_code":0,"redacted":true}'
+    ;;
+  "-c qa-blue apps")
+    printf '%s\n' 'name         requested state' 'sample-app   started'
+    ;;
+  *)
+    printf 'unexpected cfs invocation: %s\n' "$*" >&2
+    exit 64
+    ;;
+esac
