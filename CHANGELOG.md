@@ -7,6 +7,8 @@ contract may still change while cfs is pre-1.0.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-23
+
 ### Added
 
 - Added an optional Agent Skill for safe cfs context discovery and explicit
@@ -25,13 +27,14 @@ contract may still change while cfs is pre-1.0.
   uninstall flows.
 - Added CodeQL, dependency review, Dependabot, secret and vulnerability scans,
   repository templates, and manual release approval controls.
+- Included an experimental Windows runtime implementation in source. Windows
+  remains unsupported, is not exercised in CI, and is excluded from release
+  artifacts.
 
 ### Changed
 
 - Reworked the user documentation around a concise quick start and a
   reproducible multi-workspace terminal demo.
-- Windows packaging is deferred; supported release targets remain Linux and
-  macOS on amd64 and arm64.
 - Source builds now require Go 1.26.8 or newer; release builds use Go 1.27.1.
 - Global-target discovery now reads the CF configuration without invoking the
   official CLI, so inspection cannot rewrite global state.
@@ -41,6 +44,9 @@ contract may still change while cfs is pre-1.0.
 ### Fixed
 
 - CF configurations with an empty `Target` are no longer treated as logged in.
+
+### Security
+
 - Nested shim execution now accepts only a valid managed context and matching
   `CF_HOME`.
 - State paths, permissions, and configuration imports are hardened against
@@ -76,6 +82,7 @@ contract may still change while cfs is pre-1.0.
 - Linux and macOS release builds, checksums, provenance, CI, smoke tests, and an
   Apache-2.0 license.
 
-[Unreleased]: https://github.com/zongqichen/cfs/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/zongqichen/cfs/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/zongqichen/cfs/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/zongqichen/cfs/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/zongqichen/cfs/releases/tag/v0.1.0
