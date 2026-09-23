@@ -1,0 +1,21 @@
+name: Question
+description: Ask about installation, behavior, or usage
+title: "question: "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never include credentials or an unredacted CF configuration. Security vulnerabilities must use the private reporting link.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Include cfs, CF CLI, and operating-system versions when relevant.

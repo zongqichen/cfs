@@ -1,0 +1,15 @@
+title = "cfs secret detection"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "cloud-foundry-cli-credentials"
+description = "Cloud Foundry CLI credentials stored in config JSON"
+regex = '''(?i)"(?:AccessToken|RefreshToken|UAAOAuthClientSecret)"\s*:\s*"(?:bearer\s+)?([^"\s]{12,})"'''
+secretGroup = 1
+keywords = [
+  "AccessToken",
+  "RefreshToken",
+  "UAAOAuthClientSecret",
+]

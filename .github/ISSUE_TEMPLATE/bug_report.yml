@@ -1,0 +1,51 @@
+name: Bug report
+description: Report reproducible incorrect behavior
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include access tokens, refresh tokens, client secrets, or an unredacted CF configuration.
+  - type: input
+    id: cfs-version
+    attributes:
+      label: cfs version
+      placeholder: Output of cfs version
+    validations:
+      required: true
+  - type: input
+    id: cf-version
+    attributes:
+      label: CF CLI version
+      placeholder: Output of cf version
+    validations:
+      required: true
+  - type: input
+    id: operating-system
+    attributes:
+      label: Operating system
+      placeholder: For example, Ubuntu 26.04 or macOS 16
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: List the smallest set of commands that reproduces the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Use `cfs status --json --redact` if status output is relevant.
+    validations:
+      required: true

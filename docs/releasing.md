@@ -22,7 +22,6 @@ Release only from a clean, reviewed commit on `main` after all of these pass:
 
 ```console
 $ make check
-$ go test -race ./...
 $ make security
 $ make release-check
 $ make smoke
@@ -92,8 +91,10 @@ release exists and its artifact URLs and checksums are stable.
 
 ## Repository controls
 
-- Protect `main` and require the Linux, macOS, release-build, security, and
-  CodeQL jobs.
+- Protect `main` and require pull requests plus the Linux, macOS, minimum-Go,
+  release-build, security, dependency-review, and CodeQL jobs.
+- Use merge commits for reviewed pull requests; do not combine that policy with
+  GitHub's linear-history requirement.
 - Run the manual release workflow only from `main` and require the `release`
   environment's approval gate when repository staffing permits.
 - Describe the early-project support boundary in pre-1.0 release notes.

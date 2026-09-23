@@ -1,9 +1,14 @@
 # Security Policy
 
+## Supported versions
+
+Only the latest release receives security fixes. This project is pre-1.0, so
+fixes are not routinely backported to earlier releases.
+
 ## Reporting a vulnerability
 
-Please do not open a public issue for a suspected vulnerability. Use GitHub's
-private vulnerability reporting feature for this repository.
+Please do not open a public issue for a suspected vulnerability. Use the
+[private vulnerability reporting form](https://github.com/zongqichen/cfs/security/advisories/new).
 
 Include the affected version, operating system, reproduction steps, and the
 expected security impact. Do not include live Cloud Foundry credentials, access

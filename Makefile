@@ -1,15 +1,21 @@
-.PHONY: build test vet check security smoke release-check
+.PHONY: build format-check test test-race vet check security smoke release-check
 
 build:
 	go build -o bin/cfs ./cmd/cfs
 
+format-check:
+	test -z "$$(gofmt -l .)"
+
 test:
 	go test ./...
+
+test-race:
+	go test -race ./...
 
 vet:
 	go vet ./...
 
-check: test vet
+check: format-check test-race vet
 
 security:
 	./scripts/check-security.sh
