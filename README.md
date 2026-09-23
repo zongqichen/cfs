@@ -107,9 +107,12 @@ make check
 make security
 make release-check
 make smoke
+CFS_REAL_CF=/path/to/official/cf make e2e
 ```
 
-See the [design](docs/design.md) and [release guide](docs/releasing.md). Licensed
-under [Apache-2.0](LICENSE), like the official CF CLI. Contributions are
-welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) and the
+The E2E suite uses the real CLI against an isolated local mock; see
+[testing](docs/testing.md). See also the [changelog](CHANGELOG.md),
+[design](docs/design.md), and [release guide](docs/releasing.md). Licensed under
+[Apache-2.0](LICENSE), like the official CF CLI. Contributions are welcome; see
+[CONTRIBUTING.md](CONTRIBUTING.md) and the
 [Code of Conduct](CODE_OF_CONDUCT.md).

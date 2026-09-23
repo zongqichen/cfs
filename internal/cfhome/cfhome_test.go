@@ -91,6 +91,41 @@ func TestHasConfigRejectsSymbolicLink(t *testing.T) {
 	}
 }
 
+func TestHasTarget(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    bool
+	}{
+		{name: "targeted", content: "{\"Target\":\"https://api.example.com\"}", want: true},
+		{name: "blank target", content: "{\"Target\":\"  \"}"},
+		{name: "no target", content: "{}"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			home := t.TempDir()
+			writeConfig(t, home, []byte(test.content), 0o600)
+			got, err := HasTarget(home)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != test.want {
+				t.Fatalf("HasTarget() = %t, want %t", got, test.want)
+			}
+		})
+	}
+}
+
+func TestHasTargetReturnsFalseWhenConfigurationIsMissing(t *testing.T) {
+	got, err := HasTarget(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got {
+		t.Fatal("HasTarget() = true without a configuration")
+	}
+}
+
 func writeConfig(t *testing.T, home string, content []byte, mode os.FileMode) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(ConfigPath(home)), 0o700); err != nil {

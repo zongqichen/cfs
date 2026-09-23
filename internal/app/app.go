@@ -112,7 +112,7 @@ func runShim(options Options, args []string) int {
 		}
 	}
 	if commandFailed && workspaceWasEmpty {
-		if _, available, _ := globalTargetAvailable(cfg.RealCFPath); available {
+		if _, available, _ := globalTargetAvailable(); available {
 			fprintf(options.Stderr, "cfs: a global CF context is available; run 'cfs import' to use it here.\n")
 		}
 	}

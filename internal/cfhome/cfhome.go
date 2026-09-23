@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/zongqichen/cfs/internal/securefs"
 )
@@ -44,9 +45,21 @@ func HasConfig(home string) (bool, error) {
 	return true, nil
 }
 
-func Validate(home string) error {
-	_, err := readConfig(ConfigPath(home))
-	return err
+func HasTarget(home string) (bool, error) {
+	raw, err := readConfig(ConfigPath(home))
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	var config struct {
+		Target string
+	}
+	if err := json.Unmarshal(raw, &config); err != nil {
+		return false, fmt.Errorf("parse CF configuration: %w", err)
+	}
+	return strings.TrimSpace(config.Target) != "", nil
 }
 
 func Import(sourceHome, destinationHome string) error {

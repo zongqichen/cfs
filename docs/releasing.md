@@ -27,6 +27,13 @@ $ make release-check
 $ make smoke
 ```
 
+Before creating the tag, move the relevant `Unreleased` entries in
+`CHANGELOG.md` under a heading in the form `## [X.Y.Z] - YYYY-MM-DD`, add a new
+empty `Unreleased` heading, and update the comparison links at the bottom of the
+file. Keep entries user-facing and include compatibility and security changes;
+omit commit-by-commit maintenance noise. Review that changelog update in the
+same pull request as the release preparation.
+
 `make smoke` uses an installed official CF CLI without credentials. If the
 active `cf` command is already the cfs shim, pass the official executable
 explicitly: `CFS_REAL_CF=/absolute/path/to/cf make smoke`.
