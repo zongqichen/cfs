@@ -86,6 +86,7 @@ func runShim(options Options, args []string) int {
 		}
 		return exitUnavailable
 	}
+	suggestImport, _ := importAvailableForEmptyWorkspace(cfg.RealCFPath, managed.Context.CFHome)
 
 	timeout, err := lockTimeout()
 	if err != nil {
@@ -105,6 +106,9 @@ func runShim(options Options, args []string) int {
 
 	env := managed.environment(os.Environ())
 	exitCode := invokeOfficial(options, cfg.RealCFPath, args, env)
+	if exitCode != exitOK && suggestImport {
+		fprintf(options.Stderr, "cfs: a global CF context is available; run 'cfs import' to use it here.\n")
+	}
 	if err := workspaceLock.Release(); err != nil {
 		fprintf(options.Stderr, "cfs: %v\n", err)
 		if exitCode == exitOK {

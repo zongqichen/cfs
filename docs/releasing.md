@@ -35,11 +35,14 @@ explicitly: `CFS_REAL_CF=/absolute/path/to/cf make smoke`.
 Before a release, also perform the opt-in manual acceptance test against a
 non-production Cloud Foundry foundation:
 
-1. Log in with `cf login --sso` from a new workspace.
-2. Confirm a fresh shell in that workspace retains the target.
-3. Run two coding agents in different workspaces and confirm that they retain
+1. Log in globally, run `cfs import` from a new workspace, and confirm the
+   imported target without printing credentials.
+2. Confirm the global configuration is unchanged by the import.
+3. Confirm a fresh shell in that workspace retains the target.
+4. Run two coding agents in different workspaces and confirm that they retain
    different org and space targets.
-4. Confirm the user's global `$HOME/.cf` target is unchanged.
+5. Confirm a failed command in a fresh workspace suggests `cfs import` without
+   modifying the global target.
 
 Never put credentials, tokens, target configuration, or live acceptance output
 in release artifacts or CI logs.

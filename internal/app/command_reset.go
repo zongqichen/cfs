@@ -1,11 +1,8 @@
 package app
 
 import (
-	"bufio"
 	"errors"
-	"io"
 	"os"
-	"strings"
 
 	"github.com/zongqichen/cfs/internal/config"
 	"github.com/zongqichen/cfs/internal/envvar"
@@ -76,28 +73,5 @@ func commandReset(options Options, args []string) int {
 }
 
 func confirmReset(options Options, workspaceRoot string) (bool, int) {
-	if !isTerminal(options.Stdin) {
-		fprintf(options.Stderr, "cfs: reset requires --yes when standard input is not a terminal\n")
-		return false, exitUsage
-	}
-	fprintf(options.Stdout, "Reset CF state for %s? [y/N] ", workspaceRoot)
-	answer, err := bufio.NewReader(options.Stdin).ReadString('\n')
-	if err != nil && !errors.Is(err, io.EOF) {
-		fprintf(options.Stderr, "cfs: read confirmation: %v\n", err)
-		return false, exitError
-	}
-	if strings.ToLower(strings.TrimSpace(answer)) != "y" {
-		fprintf(options.Stdout, "Reset cancelled.\n")
-		return false, exitOK
-	}
-	return true, exitOK
-}
-
-func isTerminal(reader io.Reader) bool {
-	file, ok := reader.(*os.File)
-	if !ok {
-		return false
-	}
-	info, err := file.Stat()
-	return err == nil && info.Mode()&os.ModeCharDevice != 0
+	return confirm(options, "reset", "Reset CF state for "+workspaceRoot+"?")
 }

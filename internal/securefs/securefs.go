@@ -98,7 +98,10 @@ func WriteJSONAtomic(path string, value any) error {
 		return fmt.Errorf("encode %s: %w", path, err)
 	}
 	raw = append(raw, '\n')
+	return WriteFileAtomic(path, raw)
+}
 
+func WriteFileAtomic(path string, content []byte) error {
 	directory := filepath.Dir(path)
 	if err := EnsureDirectory(directory); err != nil {
 		return err
@@ -113,7 +116,7 @@ func WriteJSONAtomic(path string, value any) error {
 	if err := temporary.Chmod(FileMode); err != nil {
 		return errors.Join(fmt.Errorf("set permissions on %s: %w", temporaryPath, err), closeFile(temporary))
 	}
-	if _, err := temporary.Write(raw); err != nil {
+	if _, err := temporary.Write(content); err != nil {
 		return errors.Join(fmt.Errorf("write %s: %w", temporaryPath, err), closeFile(temporary))
 	}
 	if err := temporary.Close(); err != nil {

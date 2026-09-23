@@ -43,6 +43,7 @@ func commandDoctor(options Options, args []string) int {
 
 	output := doctorOutput{}
 	hasFailure := false
+	realCFReady := false
 	add := func(name string, status checkStatus, message string) {
 		output.Checks = append(output.Checks, doctorCheck{Name: name, Status: status, Message: message})
 		if status == checkFail {
@@ -59,6 +60,7 @@ func commandDoctor(options Options, args []string) int {
 		if err := validateRealCF(cfg.RealCFPath); err != nil {
 			add("official-cf", checkFail, err.Error())
 		} else {
+			realCFReady = true
 			add("official-cf", checkPass, cfg.RealCFPath)
 		}
 
@@ -90,6 +92,10 @@ func commandDoctor(options Options, args []string) int {
 			add("workspace", checkWarn, resolveErr.Error())
 		} else {
 			add("workspace", checkPass, ws.Root)
+			if realCFReady {
+				check := inspectWorkspaceTarget(cfg, ws)
+				add(check.Name, check.Status, check.Message)
+			}
 		}
 	}
 
@@ -106,6 +112,28 @@ func commandDoctor(options Options, args []string) int {
 		return exitError
 	}
 	return exitOK
+}
+
+func inspectWorkspaceTarget(cfg config.Config, ws workspace.Workspace) doctorCheck {
+	managed, err := resolveManagedContextFromWorkspace(cfg, ws)
+	if err != nil {
+		return doctorCheck{Name: "workspace-target", Status: checkFail, Message: err.Error()}
+	}
+	available, err := targetAvailable(cfg.RealCFPath, managed.Context.CFHome)
+	if err != nil {
+		return doctorCheck{Name: "workspace-target", Status: checkFail, Message: err.Error()}
+	}
+	if available {
+		return doctorCheck{Name: "workspace-target", Status: checkPass, Message: "ready"}
+	}
+	_, globalAvailable, err := globalTargetAvailable(cfg.RealCFPath)
+	if err != nil {
+		return doctorCheck{Name: "workspace-target", Status: checkFail, Message: err.Error()}
+	}
+	if globalAvailable {
+		return doctorCheck{Name: "workspace-target", Status: checkWarn, Message: "not configured; run 'cfs import' or 'cf login'"}
+	}
+	return doctorCheck{Name: "workspace-target", Status: checkWarn, Message: "not configured; run 'cf login'"}
 }
 
 func currentDirectory() string {
