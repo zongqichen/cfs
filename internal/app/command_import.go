@@ -40,7 +40,7 @@ func commandImport(options Options, args []string) (exitCode int) {
 		return exitUnavailable
 	}
 
-	globalHome, available, err := globalTargetAvailable(cfg.RealCFPath)
+	globalHome, available, err := globalTargetAvailable()
 	if err != nil {
 		fprintf(options.Stderr, "cfs: inspect global CF target: %v\n", err)
 		return exitError

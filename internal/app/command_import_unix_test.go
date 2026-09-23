@@ -126,6 +126,19 @@ func TestImportReportsMissingGlobalTarget(t *testing.T) {
 	}
 }
 
+func TestImportRejectsGlobalConfigurationWithoutAPITarget(t *testing.T) {
+	fakeCF := writeTargetAwareFakeCF(t)
+	configureTestEnvironment(t, fakeCF, t.TempDir())
+	globalHome := t.TempDir()
+	t.Setenv("HOME", globalHome)
+	writeCFConfig(t, globalHome, []byte("{\"Target\":\"\"}"))
+
+	result := runFromDirectory(t, markerWorkspace(t), []string{"cfs", "import", "--yes"})
+	if result.code != exitUnavailable || !strings.Contains(result.stderr, "no active global CF target") {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
 func TestImportOutsideWorkspaceIncludesResolutionHint(t *testing.T) {
 	fakeCF := writeTargetAwareFakeCF(t)
 	configureTestEnvironment(t, fakeCF, t.TempDir())

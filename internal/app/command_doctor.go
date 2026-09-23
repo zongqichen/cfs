@@ -126,7 +126,7 @@ func inspectWorkspaceTarget(cfg config.Config, ws workspace.Workspace) doctorChe
 	if available {
 		return doctorCheck{Name: "workspace-target", Status: checkPass, Message: "ready"}
 	}
-	_, globalAvailable, err := globalTargetAvailable(cfg.RealCFPath)
+	_, globalAvailable, err := globalTargetAvailable()
 	if err != nil {
 		return doctorCheck{Name: "workspace-target", Status: checkFail, Message: err.Error()}
 	}

@@ -10,11 +10,8 @@ import (
 )
 
 func targetAvailable(realCF, home string) (bool, error) {
-	exists, err := cfhome.HasConfig(home)
-	if err != nil || !exists {
-		return false, err
-	}
-	if err := cfhome.Validate(home); err != nil {
+	targeted, err := cfhome.HasTarget(home)
+	if err != nil || !targeted {
 		return false, err
 	}
 	env := runner.WithoutEnv(os.Environ(), envvar.CFTrace)
@@ -26,12 +23,12 @@ func targetAvailable(realCF, home string) (bool, error) {
 	return err == nil && result.ExitCode == exitOK, err
 }
 
-func globalTargetAvailable(realCF string) (string, bool, error) {
+func globalTargetAvailable() (string, bool, error) {
 	home, err := cfhome.Default()
 	if err != nil {
 		return "", false, err
 	}
-	available, err := targetAvailable(realCF, home)
+	available, err := cfhome.HasTarget(home)
 	return home, available, err
 }
 
