@@ -18,14 +18,11 @@ targets.
 
 ## Quick start
 
-Install the [official CF CLI](https://github.com/cloudfoundry/cli), then download
-`cfs` from [GitHub Releases](https://github.com/zongqichen/cloud-foundry-cli-contexts/releases).
-To build the current source with Go 1.26.8+:
+Install the [official CF CLI](https://github.com/cloudfoundry/cli), then install
+`cfs` with Go 1.26.8+:
 
 ```sh
-git clone https://github.com/zongqichen/cloud-foundry-cli-contexts.git
-cd cloud-foundry-cli-contexts
-go install ./cmd/cfs
+go install github.com/zongqichen/cloud-foundry-cli-contexts/cmd/cfs@latest
 cfs setup
 ```
 
@@ -55,11 +52,10 @@ cfs update
 
 For scripts and coding agents, use `cfs update --json`. When an update is
 available, follow the printed command or update through the same installation
-channel. A source installation can be updated from its checkout with:
+channel. A Go installation can be updated with:
 
 ```sh
-git pull --ff-only
-go install ./cmd/cfs
+go install github.com/zongqichen/cloud-foundry-cli-contexts/cmd/cfs@latest
 cfs setup
 cfs doctor
 ```
