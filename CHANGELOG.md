@@ -11,6 +11,8 @@ contract may still change while cfs is pre-1.0.
 
 - Clarified multi-session and Agent Skill discovery, including how `cfs`
   differs from manual `CF_HOME`, cf-targets-plugin, and cfctx workflows.
+- Made release archives reproducible and added an exact-content gate before
+  publication.
 
 ## [0.3.1] - 2026-09-24
 
