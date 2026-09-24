@@ -13,7 +13,7 @@ import (
 	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/workspace"
 )
 
-func TestContextForNameKeepsDefaultIdentityAndSeparatesNames(t *testing.T) {
+func TestContextForNameUsesWorkspaceIdentityForDefaultAndSeparatesNames(t *testing.T) {
 	s := New(t.TempDir())
 	ws := workspace.Workspace{ID: strings.Repeat("a", 64)}
 
@@ -109,7 +109,7 @@ func TestEnsureRejectsMetadataMismatch(t *testing.T) {
 	}
 }
 
-func TestReadMetadataAcceptsLegacyDefaultContext(t *testing.T) {
+func TestReadMetadataRejectsIncompleteIdentity(t *testing.T) {
 	root := t.TempDir()
 	s := New(root)
 	ws := workspace.Workspace{
@@ -126,25 +126,36 @@ func TestReadMetadataAcceptsLegacyDefaultContext(t *testing.T) {
 	if err := s.Prepare(ctx); err != nil {
 		t.Fatal(err)
 	}
-	legacy := map[string]any{
-		"version": 1, "context_id": ws.ID, "workspace": ws.Root,
-		"source": ws.Source, "fingerprint": ws.Fingerprint,
-		"created_at": time.Now().UTC(), "last_used_at": time.Now().UTC(),
+	metadata := Metadata{
+		Version:     metadataVersion,
+		ContextID:   ctx.ID,
+		ContextName: contextname.Default,
+		WorkspaceID: ws.ID,
+		Workspace:   ws.Root,
+		Source:      ws.Source,
+		Fingerprint: ws.Fingerprint,
+		CreatedAt:   time.Now().UTC(),
+		LastUsedAt:  time.Now().UTC(),
 	}
-	raw, err := json.Marshal(legacy)
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name   string
+		mutate func(*Metadata)
+		want   string
+	}{
+		{name: "context name", mutate: func(value *Metadata) { value.ContextName = "" }, want: "missing context name"},
+		{name: "workspace ID", mutate: func(value *Metadata) { value.WorkspaceID = "" }, want: "missing workspace ID"},
 	}
-	if err := os.WriteFile(ctx.MetadataPath, raw, 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	metadata, err := s.ReadMetadata(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if metadata.ContextName != contextname.Default || metadata.WorkspaceID != ws.ID {
-		t.Fatalf("legacy metadata was not normalized: %#v", metadata)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			incomplete := metadata
+			test.mutate(&incomplete)
+			if err := os.WriteFile(ctx.MetadataPath, mustJSON(t, incomplete), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.ReadMetadata(ctx); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("ReadMetadata() error = %v, want %q", err, test.want)
+			}
+		})
 	}
 }
 

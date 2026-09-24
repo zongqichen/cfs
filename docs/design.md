@@ -346,10 +346,9 @@ require another login, but it cannot silently attach credentials from an
 unrelated directory. A future explicit `cfs rebind` operation may support safe
 migration.
 
-The default context ID remains the workspace ID for backward compatibility. A
-named context uses a domain-separated SHA-256 digest of the workspace ID and
-exact context name. Metadata records both values so renamed or transplanted
-state fails validation.
+The default context ID is the workspace ID. A named context uses a
+domain-separated SHA-256 digest of the workspace ID and exact context name.
+Metadata records both values so renamed or transplanted state fails validation.
 
 ## 10. State layout
 
