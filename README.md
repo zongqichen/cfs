@@ -4,8 +4,8 @@
 [![Release](https://img.shields.io/github/v/release/zongqichen/cloud-foundry-cli-contexts?include_prereleases&sort=semver)](https://github.com/zongqichen/cloud-foundry-cli-contexts/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-Run multiple independent Cloud Foundry CLI sessions in parallel without shared
-targets or `CF_HOME` collisions.
+Run multiple Cloud Foundry CLI sessions and targets in parallel without
+`CF_HOME` conflicts.
 
 The official `cf` CLI keeps its active API, organization, space, and
 authentication state in `$HOME/.cf`, so changing the target in one terminal
