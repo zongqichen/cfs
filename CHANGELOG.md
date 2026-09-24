@@ -7,6 +7,11 @@ contract may still change while cfs is pre-1.0.
 
 ## [Unreleased]
 
+### Changed
+
+- Clarified multi-session discovery and documented how `cfs` differs from
+  manual `CF_HOME`, cf-targets-plugin, and cfctx workflows.
+
 ## [0.3.1] - 2026-09-24
 
 ### Changed

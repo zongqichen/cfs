@@ -4,17 +4,22 @@
 [![Release](https://img.shields.io/github/v/release/zongqichen/cloud-foundry-cli-contexts?include_prereleases&sort=semver)](https://github.com/zongqichen/cloud-foundry-cli-contexts/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-Run independent Cloud Foundry CLI targets in parallel.
+Run multiple independent Cloud Foundry CLI sessions in parallel without shared
+targets or `CF_HOME` collisions.
 
-The official `cf` CLI keeps one active target in `$HOME/.cf`, so switching it in
-one terminal changes it everywhere. `cfs` isolates that state per project or
-Git worktree, with optional named contexts when one project needs several
-targets.
+The official `cf` CLI keeps its active API, organization, space, and
+authentication state in `$HOME/.cf`, so changing the target in one terminal
+changes it everywhere. `cfs` gives each project or Git worktree an isolated
+`CF_HOME` while preserving the normal `cf` command. Optional named contexts let
+one project use several targets without a shared current selection.
 
 ![Two projects keeping independent Cloud Foundry targets](docs/assets/cfs-demo.gif)
 
 *The demo runs the real `cfs` shim with a local, credential-free CF fixture.
 [View the source](docs/demo/demo.tape).*
+
+Already using environment variables or another context manager?
+[Compare `cfs` with manual `CF_HOME`, cf-targets-plugin, and cfctx](docs/comparison.md).
 
 ## Quick start
 
