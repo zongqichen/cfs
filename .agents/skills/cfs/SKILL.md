@@ -1,6 +1,6 @@
 ---
 name: cfs
-description: Safely select an existing cfs Cloud Foundry context and route CF CLI commands in cfs-managed workspaces, including parallel terminal or coding-agent workflows. Use for workspace-default or named-context selection, not for general Cloud Foundry deployment guidance.
+description: Use cfs when parallel terminals, projects, Git worktrees, or coding agents need independent Cloud Foundry CLI sessions and targets without shared CF_HOME conflicts. Safely discover and select existing workspace-default or named contexts; not for general Cloud Foundry deployment guidance.
 ---
 
 # Use cfs contexts

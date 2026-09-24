@@ -1,9 +1,10 @@
-# Cloud Foundry CLI context options
+# Cloud Foundry CLI contexts for multiple sessions and targets
 
-The official Cloud Foundry CLI stores its active API, organization, space, and
-authentication state under `CF_HOME`. Terminals that share the same `CF_HOME`
-therefore share one current target. Several tools address this in different
-ways.
+Multiple Cloud Foundry CLI sessions can use different targets in parallel when
+their mutable state is isolated. The official CLI stores its active API,
+organization, space, and authentication state under `CF_HOME`. Terminals that
+share the same `CF_HOME` therefore share one current target. Several tools
+address this in different ways.
 
 | Approach | Isolation and selection | Keeps normal `cf` commands | Best fit |
 | --- | --- | --- | --- |
