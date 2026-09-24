@@ -16,7 +16,7 @@ import (
 	"github.com/zongqichen/cloud-foundry-cli-contexts/internal/workspace"
 )
 
-func TestNamedContextsUseIndependentHomesAndKeepDefaultCompatible(t *testing.T) {
+func TestNamedContextsUseIndependentHomesAndShareDefaultHome(t *testing.T) {
 	fakeCF := writeFakeCF(t)
 	stateRoot := canonicalTestPath(t, t.TempDir())
 	configureTestEnvironment(t, fakeCF, stateRoot)

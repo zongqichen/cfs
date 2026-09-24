@@ -49,8 +49,8 @@ type Context struct {
 type Metadata struct {
 	Version     int       `json:"version"`
 	ContextID   string    `json:"context_id"`
-	ContextName string    `json:"context_name,omitempty"`
-	WorkspaceID string    `json:"workspace_id,omitempty"`
+	ContextName string    `json:"context_name"`
+	WorkspaceID string    `json:"workspace_id"`
 	Workspace   string    `json:"workspace"`
 	Source      string    `json:"source"`
 	Fingerprint string    `json:"fingerprint"`
@@ -188,13 +188,13 @@ func (s Store) ReadMetadata(ctx Context) (Metadata, error) {
 		return Metadata{}, fmt.Errorf("unsupported metadata version %d", metadata.Version)
 	}
 	if metadata.ContextName == "" {
-		metadata.ContextName = contextname.Default
+		return Metadata{}, errors.New("missing context name in context metadata")
 	}
 	if err := contextname.Validate(metadata.ContextName); err != nil {
 		return Metadata{}, err
 	}
-	if metadata.WorkspaceID == "" && metadata.ContextName == contextname.Default {
-		metadata.WorkspaceID = metadata.ContextID
+	if metadata.WorkspaceID == "" {
+		return Metadata{}, errors.New("missing workspace ID in context metadata")
 	}
 	if !validID(metadata.WorkspaceID) {
 		return Metadata{}, errors.New("invalid workspace ID in context metadata")
