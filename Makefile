@@ -1,4 +1,4 @@
-.PHONY: build format-check test test-race vet check security smoke agent-smoke e2e release-check
+.PHONY: build format-check test test-race vet check security smoke agent-smoke e2e release-check package-check
 
 build:
 	go build -o bin/cfs ./cmd/cfs
@@ -31,3 +31,6 @@ e2e:
 
 release-check:
 	./scripts/check-release-builds.sh
+
+package-check:
+	./scripts/check-release-archives.sh dist

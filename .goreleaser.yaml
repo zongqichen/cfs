@@ -36,10 +36,30 @@ archives:
       owner: root
       mtime: "{{ .CommitDate }}"
     files:
-      - README.md
-      - LICENSE
-      - NOTICE
-      - CHANGELOG.md
+      - src: README.md
+        info:
+          group: root
+          owner: root
+          mode: 0644
+          mtime: "{{ .CommitDate }}"
+      - src: LICENSE
+        info:
+          group: root
+          owner: root
+          mode: 0644
+          mtime: "{{ .CommitDate }}"
+      - src: NOTICE
+        info:
+          group: root
+          owner: root
+          mode: 0644
+          mtime: "{{ .CommitDate }}"
+      - src: CHANGELOG.md
+        info:
+          group: root
+          owner: root
+          mode: 0644
+          mtime: "{{ .CommitDate }}"
 
 checksum:
   name_template: checksums.txt
